@@ -1,0 +1,148 @@
+{
+  "tax_year": 2025,
+  "notes": "Federal 2025 brackets + New York State/City tax rates. All amounts are annual unless noted.",
+
+  "federal": {
+    "standard_deduction": {
+      "single": 15000,
+      "married_jointly": 30000,
+      "married_separately": 15000,
+      "head_of_household": 22500
+    },
+    "brackets": {
+      "single": [
+        {"min": 0, "max": 11925, "rate": 0.10},
+        {"min": 11925, "max": 48475, "rate": 0.12},
+        {"min": 48475, "max": 103350, "rate": 0.22},
+        {"min": 103350, "max": 197300, "rate": 0.24},
+        {"min": 197300, "max": 250525, "rate": 0.32},
+        {"min": 250525, "max": 626350, "rate": 0.35},
+        {"min": 626350, "max": 999999999, "rate": 0.37}
+      ],
+      "married_jointly": [
+        {"min": 0, "max": 23850, "rate": 0.10},
+        {"min": 23850, "max": 96950, "rate": 0.12},
+        {"min": 96950, "max": 206700, "rate": 0.22},
+        {"min": 206700, "max": 394600, "rate": 0.24},
+        {"min": 394600, "max": 501050, "rate": 0.32},
+        {"min": 501050, "max": 751600, "rate": 0.35},
+        {"min": 751600, "max": 999999999, "rate": 0.37}
+      ],
+      "married_separately": [
+        {"min": 0, "max": 11925, "rate": 0.10},
+        {"min": 11925, "max": 48475, "rate": 0.12},
+        {"min": 48475, "max": 103350, "rate": 0.22},
+        {"min": 103350, "max": 197300, "rate": 0.24},
+        {"min": 197300, "max": 250525, "rate": 0.32},
+        {"min": 250525, "max": 375800, "rate": 0.35},
+        {"min": 375800, "max": 999999999, "rate": 0.37}
+      ],
+      "head_of_household": [
+        {"min": 0, "max": 17000, "rate": 0.10},
+        {"min": 17000, "max": 64850, "rate": 0.12},
+        {"min": 64850, "max": 103350, "rate": 0.22},
+        {"min": 103350, "max": 197300, "rate": 0.24},
+        {"min": 197300, "max": 250500, "rate": 0.32},
+        {"min": 250500, "max": 626350, "rate": 0.35},
+        {"min": 626350, "max": 999999999, "rate": 0.37}
+      ]
+    }
+  },
+
+  "fica": {
+    "social_security_rate": 0.062,
+    "social_security_wage_base": 176100,
+    "medicare_rate": 0.0145,
+    "additional_medicare_rate": 0.009,
+    "additional_medicare_threshold": {
+      "single": 200000,
+      "married_jointly": 250000,
+      "married_separately": 125000,
+      "head_of_household": 200000
+    }
+  },
+
+  "employer_taxes": {
+    "social_security_rate": 0.062,
+    "medicare_rate": 0.0145,
+    "futa_rate": 0.006,
+    "futa_wage_base": 7000,
+    "ny_sui_rate": 0.04,
+    "ny_sui_wage_base": 12800,
+    "ny_mctmt_rate": 0.0034,
+    "ny_mctmt_applies": true
+  },
+
+  "new_york_state": {
+    "brackets": {
+      "single": [
+        {"min": 0, "max": 8500, "rate": 0.04},
+        {"min": 8500, "max": 11700, "rate": 0.045},
+        {"min": 11700, "max": 13900, "rate": 0.0525},
+        {"min": 13900, "max": 80650, "rate": 0.055},
+        {"min": 80650, "max": 215400, "rate": 0.06},
+        {"min": 215400, "max": 1077550, "rate": 0.0685},
+        {"min": 1077550, "max": 5000000, "rate": 0.0965},
+        {"min": 5000000, "max": 25000000, "rate": 0.103},
+        {"min": 25000000, "max": 999999999, "rate": 0.109}
+      ],
+      "married": [
+        {"min": 0, "max": 17150, "rate": 0.04},
+        {"min": 17150, "max": 23600, "rate": 0.045},
+        {"min": 23600, "max": 27900, "rate": 0.0525},
+        {"min": 27900, "max": 161550, "rate": 0.055},
+        {"min": 161550, "max": 323200, "rate": 0.06},
+        {"min": 323200, "max": 2155350, "rate": 0.0685},
+        {"min": 2155350, "max": 5000000, "rate": 0.0965},
+        {"min": 5000000, "max": 25000000, "rate": 0.103},
+        {"min": 25000000, "max": 999999999, "rate": 0.109}
+      ],
+      "head_of_household": [
+        {"min": 0, "max": 12800, "rate": 0.04},
+        {"min": 12800, "max": 17650, "rate": 0.045},
+        {"min": 17650, "max": 20900, "rate": 0.0525},
+        {"min": 20900, "max": 107650, "rate": 0.055},
+        {"min": 107650, "max": 269300, "rate": 0.06},
+        {"min": 269300, "max": 1616450, "rate": 0.0685},
+        {"min": 1616450, "max": 5000000, "rate": 0.0965},
+        {"min": 5000000, "max": 25000000, "rate": 0.103},
+        {"min": 25000000, "max": 999999999, "rate": 0.109}
+      ]
+    },
+    "standard_deduction": {
+      "single": 8000,
+      "married": 16050,
+      "head_of_household": 11200
+    },
+    "sdi_rate": 0.005,
+    "sdi_max_weekly": 0.60,
+    "paid_family_leave_rate": 0.00388,
+    "paid_family_leave_wage_base": 1718.15
+  },
+
+  "nyc": {
+    "brackets": [
+      {"min": 0, "max": 12000, "rate": 0.03078},
+      {"min": 12000, "max": 25000, "rate": 0.03762},
+      {"min": 25000, "max": 50000, "rate": 0.03819},
+      {"min": 50000, "max": 999999999, "rate": 0.03876}
+    ]
+  },
+
+  "yonkers": {
+    "surcharge_rate": 0.1675
+  },
+
+  "filing_status_map": {
+    "Single": {"federal": "single", "ny": "single"},
+    "Married Filing Jointly": {"federal": "married_jointly", "ny": "married"},
+    "Married Filing Separately": {"federal": "married_separately", "ny": "single"},
+    "Head of Household": {"federal": "head_of_household", "ny": "head_of_household"}
+  },
+
+  "ny_filing_status_map": {
+    "Single": "single",
+    "Married": "married",
+    "Head of Household": "head_of_household"
+  }
+}

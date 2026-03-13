@@ -1,0 +1,15 @@
+day,emp_id,employee_name,position,shift,hours
+Monday,A5DX1P,Kostas Stamkopoulos,Bartender,Dinner,8.0
+Monday,W7Q0K3,Froso Pavlidou,Server,Dinner,7.0
+Monday,LZCJQO,Mainor Lopez,Runner,Dinner,8.0
+Monday,W7Q0K3,Froso Pavlidou,Server (Morning),Morning,4.0
+Tuesday,W7Q0K3,Froso Pavlidou,Server (Morning),Morning,3.0
+Tuesday,U3PZQC,Mariana Kapandriti,Server,Dinner,5.0
+Tuesday,LZCJQO,Mainor Lopez,Runner,Dinner,3.0
+Tuesday,NJFTLF,Hirinio Nazario Jr,Bartender,Dinner,5.0
+Thursday,A5DX1P,Kostas Stamkopoulos,Bartender,Dinner,5.87
+Thursday,R98K4X,Theofilos Adalis,Server,Dinner,7.0
+Thursday,DHF3MJ,Daniel Vilchis,Runner,Dinner,0.0
+Wednesday,ZAERJN,Haris Nioulikos,Bartender,Dinner,0
+Wednesday,9OLZC7,Sakis Natsis,Server,Dinner,0
+Wednesday,DHF3MJ,Daniel Vilchis,Runner,Dinner,0

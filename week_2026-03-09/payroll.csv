@@ -1,0 +1,6 @@
+emp_id,employee_name,positions,department,regular_hours,overtime_hours,hourly_rate,regular_wages,overtime_wages,total_tips,total_compensation,wage_note
+W7Q0K3,Froso Pavlidou,"Server, Server (Morning)",FOH,14.0,0,split,219.45,0.0,235.91,455.36,Server 7.0hrs @ $11.35 + Server (Morning) 7.0hrs @ $20.00
+NJFTLF,Hirinio Nazario Jr,Bartender,FOH,5.0,0,11.35,56.75,0.0,58.23,114.98,
+A5DX1P,Kostas Stamkopoulos,Bartender,FOH,8.0,0,11.35,90.8,0.0,170.95,261.75,
+LZCJQO,Mainor Lopez,Runner,FOH,11.0,0,11.35,124.85,0.0,151.46,276.31,
+U3PZQC,Mariana Kapandriti,Server,FOH,5.0,0,11.35,56.75,0.0,70.45,127.2,

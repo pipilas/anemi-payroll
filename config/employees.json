@@ -1,0 +1,360 @@
+[
+  {
+    "id": "ZAERJN",
+    "name": "Haris Nioulikos",
+    "positions": [
+      {
+        "position_name": "Bartender"
+      }
+    ],
+    "sort_order": 0,
+    "tax_info": {
+      "tax_enabled": true,
+      "federal_filing_status": "Single",
+      "w4_version": "Pre-2020 Old W-4",
+      "multiple_jobs": false,
+      "dependents_amount": "0",
+      "other_income": "0",
+      "deductions": "0",
+      "extra_withholding": "0",
+      "exempt_federal": false,
+      "ny_filing_status": "Single",
+      "ny_additional_withholding": "0",
+      "lives_in_nyc": true,
+      "lives_in_yonkers": false,
+      "exempt_ny_state": false
+    }
+  },
+  {
+    "id": "EL8CBV",
+    "name": "Julia Yan",
+    "positions": [
+      {
+        "position_name": "Bartender"
+      }
+    ],
+    "sort_order": 1
+  },
+  {
+    "id": "A5DX1P",
+    "name": "Kostas Stamkopoulos",
+    "positions": [
+      {
+        "position_name": "Bartender"
+      }
+    ],
+    "sort_order": 2,
+    "tax_info": {
+      "tax_enabled": true,
+      "federal_filing_status": "Single",
+      "w4_version": "2020+ New W-4",
+      "multiple_jobs": false,
+      "dependents_amount": "0",
+      "other_income": "0",
+      "deductions": "0",
+      "extra_withholding": "0",
+      "exempt_federal": false,
+      "ny_filing_status": "Single",
+      "ny_additional_withholding": "0",
+      "lives_in_nyc": true,
+      "lives_in_yonkers": false,
+      "exempt_ny_state": false
+    }
+  },
+  {
+    "id": "MT6RTB",
+    "name": "Katerina Kapandriti",
+    "positions": [
+      {
+        "position_name": "Server"
+      },
+      {
+        "position_name": "Server (Morning)"
+      }
+    ],
+    "sort_order": 3
+  },
+  {
+    "id": "R98K4X",
+    "name": "Theofilos Adalis",
+    "positions": [
+      {
+        "position_name": "Server"
+      },
+      {
+        "position_name": "Server (Morning)"
+      }
+    ],
+    "sort_order": 4
+  },
+  {
+    "id": "W7Q0K3",
+    "name": "Froso Pavlidou",
+    "positions": [
+      {
+        "position_name": "Server"
+      },
+      {
+        "position_name": "Server (Morning)"
+      }
+    ],
+    "sort_order": 5
+  },
+  {
+    "id": "9OLZC7",
+    "name": "Sakis Natsis",
+    "positions": [
+      {
+        "position_name": "Server"
+      }
+    ],
+    "sort_order": 6
+  },
+  {
+    "id": "U3PZQC",
+    "name": "Mariana Kapandriti",
+    "positions": [
+      {
+        "position_name": "Server"
+      },
+      {
+        "position_name": "Server (Morning)"
+      }
+    ],
+    "sort_order": 7
+  },
+  {
+    "id": "DHF3MJ",
+    "name": "Daniel Vilchis",
+    "positions": [
+      {
+        "position_name": "Runner"
+      }
+    ],
+    "sort_order": 8
+  },
+  {
+    "id": "PAP8C6",
+    "name": "Juan El Boliviano",
+    "positions": [
+      {
+        "position_name": "Runner"
+      },
+      {
+        "position_name": "Busser"
+      },
+      {
+        "position_name": "Server (Morning)"
+      }
+    ],
+    "sort_order": 9
+  },
+  {
+    "id": "LZCJQO",
+    "name": "Mainor Lopez",
+    "positions": [
+      {
+        "position_name": "Runner"
+      },
+      {
+        "position_name": "Busser"
+      }
+    ],
+    "sort_order": 10
+  },
+  {
+    "id": "SDORXK",
+    "name": "Chris Rivera",
+    "positions": [
+      {
+        "position_name": "Runner"
+      },
+      {
+        "position_name": "Busser"
+      }
+    ],
+    "sort_order": 11
+  },
+  {
+    "id": "5J29Y7",
+    "name": "Kenny Olivares Celin",
+    "positions": [
+      {
+        "position_name": "Runner"
+      },
+      {
+        "position_name": "Busser"
+      }
+    ],
+    "sort_order": 12
+  },
+  {
+    "id": "NJFTLF",
+    "name": "Hirinio Nazario Jr",
+    "positions": [
+      {
+        "position_name": "Bartender"
+      },
+      {
+        "position_name": "Barback"
+      }
+    ],
+    "sort_order": 13
+  },
+  {
+    "id": "DWQZQ3",
+    "name": "Myrto Hatzikyriakou",
+    "positions": [
+      {
+        "position_name": "Host"
+      }
+    ],
+    "sort_order": 14
+  },
+  {
+    "id": "R9MU1L",
+    "name": "Sevasti Panopoulos",
+    "positions": [
+      {
+        "position_name": "Host"
+      }
+    ],
+    "sort_order": 15
+  },
+  {
+    "id": "7B29KU",
+    "name": "Elvira Espinobarros",
+    "positions": [
+      {
+        "position_name": "Kitchen"
+      }
+    ],
+    "sort_order": 0
+  },
+  {
+    "id": "RDI5IH",
+    "name": "Jessica Hernandez",
+    "positions": [
+      {
+        "position_name": "Kitchen"
+      }
+    ],
+    "sort_order": 1
+  },
+  {
+    "id": "D6B0K8",
+    "name": "Sylvia Garcia",
+    "positions": [
+      {
+        "position_name": "Kitchen"
+      }
+    ],
+    "sort_order": 2
+  },
+  {
+    "id": "3H0PVS",
+    "name": "Abdil Izai Romeo",
+    "positions": [
+      {
+        "position_name": "Kitchen"
+      }
+    ],
+    "sort_order": 3
+  },
+  {
+    "id": "B4J655",
+    "name": "Beltran Isael",
+    "positions": [
+      {
+        "position_name": "Kitchen"
+      }
+    ],
+    "sort_order": 4
+  },
+  {
+    "id": "KNS9HP",
+    "name": "Maria Castro",
+    "positions": [
+      {
+        "position_name": "Kitchen"
+      }
+    ],
+    "sort_order": 5
+  },
+  {
+    "id": "CVC0AI",
+    "name": "Soc Luis",
+    "positions": [
+      {
+        "position_name": "Dishwasher"
+      }
+    ],
+    "sort_order": 6
+  },
+  {
+    "id": "1ILWCI",
+    "name": "Quino Eleazir",
+    "positions": [
+      {
+        "position_name": "Dishwasher"
+      }
+    ],
+    "sort_order": 7
+  },
+  {
+    "id": "6IBKB5",
+    "name": "Gerson Gomez",
+    "positions": [
+      {
+        "position_name": "Cleaner"
+      }
+    ],
+    "sort_order": 8
+  },
+  {
+    "id": "7FNP2J",
+    "name": "Edgar",
+    "positions": [
+      {
+        "position_name": "Chef"
+      }
+    ],
+    "sort_order": 9
+  },
+  {
+    "id": "OZMHOH",
+    "name": "Joseph",
+    "positions": [
+      {
+        "position_name": "Chef"
+      }
+    ],
+    "sort_order": 10
+  },
+  {
+    "id": "5VZJHV",
+    "name": "Konstantinos Anagnostou",
+    "positions": [
+      {
+        "position_name": "Server"
+      }
+    ],
+    "sort_order": 9999,
+    "tax_info": {
+      "tax_enabled": false
+    }
+  },
+  {
+    "id": "EJFODF",
+    "name": "George Kostopoulos",
+    "positions": [
+      {
+        "position_name": "Server"
+      }
+    ],
+    "sort_order": 9999,
+    "tax_info": {
+      "tax_enabled": false
+    }
+  }
+]
