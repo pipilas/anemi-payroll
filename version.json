@@ -1,10 +1,10 @@
 {
-  "latest_version": "1.0.2",
+  "latest_version": "1.0.3",
   "minimum_version": "1.0.0",
   "release_date": "2026-03-13",
-  "download_url_windows": "https://github.com/pipilas/anemi-payroll/releases/download/v1.0.2/StamhadPayroll.exe",
-  "download_url_mac": "https://github.com/pipilas/anemi-payroll/releases/download/v1.0.2/StamhadPayroll-1.0.2-mac.dmg",
-  "release_notes": "- Cloud supported: employees, positions, hours, tips & tax tables now sync to Firebase\n- Data stays in sync across devices\n- Offline fallback with local cache",
+  "download_url_windows": "https://github.com/pipilas/anemi-payroll/releases/download/v1.0.3/StamhadPayroll.exe",
+  "download_url_mac": "https://github.com/pipilas/anemi-payroll/releases/download/v1.0.3/StamhadPayroll-1.0.3-mac.dmg",
+  "release_notes": "- Offline sync: changes made offline auto-sync to Firebase when back online\n- No more missing data between devices",
   "mandatory": false,
   "checksum_sha256": ""
 }

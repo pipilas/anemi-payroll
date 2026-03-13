@@ -312,6 +312,13 @@ class DataManager:
 
         # ── Firebase cloud storage (per-restaurant) ────────────────────────
         self.fb = None
+        self._dirty = {
+            "employees": False,
+            "positions": False,
+            "days": [],   # list of (mon_iso, day_name) tuples pending sync
+        }
+        self._sync_running = False
+
         if firebase_uid:
             try:
                 from firebase_db import FirebaseDB
@@ -331,6 +338,10 @@ class DataManager:
                 self.fb.migrate_if_needed(local_emp, local_pos)
             except Exception:
                 pass
+
+        # ── Start background sync thread ───────────────────────────────────
+        if self.fb:
+            self._start_background_sync()
 
     def _load_employees(self):
         """Load employees from Firebase, fall back to local file."""
@@ -381,9 +392,13 @@ class DataManager:
         # Save to Firebase
         if self.fb:
             try:
-                self.fb.save_positions(self.positions)
+                if self.fb.save_positions(self.positions):
+                    self._dirty["positions"] = False
+                else:
+                    self._dirty["positions"] = True
             except Exception as e:
                 print(f"[DataManager] Firebase save positions failed: {e}")
+                self._dirty["positions"] = True
         # Always save locally too (as cache)
         try:
             with open(POS_FILE, "w") as f:
@@ -395,15 +410,103 @@ class DataManager:
         # Save to Firebase
         if self.fb:
             try:
-                self.fb.save_employees(self.employees)
+                if self.fb.save_employees(self.employees):
+                    self._dirty["employees"] = False
+                else:
+                    self._dirty["employees"] = True
             except Exception as e:
                 print(f"[DataManager] Firebase save employees failed: {e}")
+                self._dirty["employees"] = True
         # Always save locally too (as cache)
         try:
             with open(EMP_FILE, "w") as f:
                 json.dump(self.employees, f, indent=2)
         except Exception as e:
             print(f"[ERROR] Failed to save employees: {e}")
+
+    # ── Background sync (offline → online recovery) ─────────────────────
+    def _mark_day_dirty(self, mon, day_name):
+        """Mark a day as needing sync to Firebase."""
+        key = (mon.isoformat() if hasattr(mon, 'isoformat') else str(mon), day_name)
+        if key not in self._dirty["days"]:
+            self._dirty["days"].append(key)
+            print(f"[Sync] Marked dirty: {key}")
+
+    def _has_pending(self):
+        """Check if there's anything that needs syncing."""
+        return (self._dirty["employees"] or
+                self._dirty["positions"] or
+                len(self._dirty["days"]) > 0)
+
+    def _start_background_sync(self):
+        """Start a background thread that syncs pending changes every 30 seconds."""
+        import threading
+
+        def _sync_loop():
+            import time
+            while True:
+                time.sleep(30)
+                if self._has_pending():
+                    self._try_sync()
+
+        t = threading.Thread(target=_sync_loop, daemon=True)
+        t.start()
+        print("[Sync] Background sync started (every 30s)")
+
+    def _try_sync(self):
+        """Attempt to sync all pending changes to Firebase."""
+        if not self.fb or self._sync_running:
+            return
+        self._sync_running = True
+        print("[Sync] Syncing pending changes...")
+
+        try:
+            # Sync employees
+            if self._dirty["employees"]:
+                try:
+                    if self.fb.save_employees(self.employees):
+                        self._dirty["employees"] = False
+                        print("[Sync]   Employees synced")
+                except Exception:
+                    pass
+
+            # Sync positions
+            if self._dirty["positions"]:
+                try:
+                    if self.fb.save_positions(self.positions):
+                        self._dirty["positions"] = False
+                        print("[Sync]   Positions synced")
+                except Exception:
+                    pass
+
+            # Sync dirty days
+            synced_days = []
+            for mon_iso, day_name in self._dirty["days"]:
+                try:
+                    mon = date.fromisoformat(mon_iso)
+                    folder = self.wk(mon)
+                    foh = [r for r in self.read_csv(folder / "foh_hours.csv")
+                           if r.get("day") == day_name]
+                    boh = [r for r in self.read_csv(folder / "boh_hours.csv")
+                           if r.get("day") == day_name]
+                    tips = [r for r in self.read_csv(folder / "weekly_tips.csv")
+                            if r.get("day") == day_name]
+                    if self.fb.save_week_day(mon_iso, day_name, foh, boh, tips):
+                        synced_days.append((mon_iso, day_name))
+                        print(f"[Sync]   Day {day_name} ({mon_iso}) synced")
+                except Exception:
+                    pass
+
+            for d in synced_days:
+                self._dirty["days"].remove(d)
+
+            if not self._has_pending():
+                print("[Sync] All changes synced!")
+
+        except Exception as e:
+            print(f"[Sync] Sync error: {e}")
+        finally:
+            self._sync_running = False
 
     def ensure_wk(self, mon):
         d = week_dir(mon)
@@ -549,9 +652,11 @@ class DataManager:
                 day_foh = [r for r in foh_rows if r.get("day") == day_name]
                 day_boh = [r for r in boh_rows if r.get("day") == day_name]
                 day_tips = [r for r in tip_rows if r.get("day") == day_name]
-                self.fb.save_week_day(mon.isoformat(), day_name, day_foh, day_boh, day_tips)
+                if not self.fb.save_week_day(mon.isoformat(), day_name, day_foh, day_boh, day_tips):
+                    self._mark_day_dirty(mon, day_name)
             except Exception as e:
                 print(f"[DataManager] Firebase save_day failed: {e}")
+                self._mark_day_dirty(mon, day_name)
 
     def load_day(self, mon, day_name):
         # ── Try Firebase first ─────────────────────────────────────────────
