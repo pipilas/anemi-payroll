@@ -74,16 +74,35 @@ jobs:
           name: macos-dmg
           path: dist/StamhadPayroll-*-mac.dmg
 
-  # ── Create GitHub Release ────────────────────────────────────────────────
+  # ── Create GitHub Release + Update version.json ─────────────────────────
   release:
     needs: [build-windows, build-mac]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
 
-      - name: Get version
+      - name: Get version from tag
         id: version
-        run: echo "version=$(cat version.txt | tr -d '[:space:]')" >> $GITHUB_OUTPUT
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Version: ${VERSION}"
+
+      - name: Get release notes from version.json
+        id: notes
+        run: |
+          NOTES=$(python3 -c "
+          import json
+          with open('version.json') as f:
+              d = json.load(f)
+          print(d.get('release_notes', 'New release'))
+          ")
+          echo "notes<<EOF" >> $GITHUB_OUTPUT
+          echo "$NOTES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Download Windows EXE
         uses: actions/download-artifact@v4
@@ -108,9 +127,42 @@ jobs:
           body: |
             ## Stamhad Payroll v${{ steps.version.outputs.version }}
 
+            ${{ steps.notes.outputs.notes }}
+
             ### Downloads
             - **Windows:** StamhadPayroll.exe
             - **macOS:** StamhadPayroll-${{ steps.version.outputs.version }}-mac.dmg
           files: |
             artifacts/StamhadPayroll.exe
             artifacts/StamhadPayroll-*-mac.dmg
+
+      # ── Update version.json AFTER release is created ───────────────────
+      - name: Update version.json with correct URLs
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+          NOTES=$(python3 -c "
+          import json
+          with open('version.json') as f:
+              d = json.load(f)
+          print(d.get('release_notes', ''))
+          ")
+
+          python3 -c "
+          import json
+          version = '${VERSION}'
+          with open('version.json') as f:
+              d = json.load(f)
+          d['latest_version'] = version
+          d['download_url_windows'] = f'https://github.com/pipilas/anemi-payroll/releases/download/v{version}/StamhadPayroll.exe'
+          d['download_url_mac'] = f'https://github.com/pipilas/anemi-payroll/releases/download/v{version}/StamhadPayroll-{version}-mac.dmg'
+          d['release_date'] = '$(date -I)'
+          with open('version.json', 'w') as f:
+              json.dump(d, f, indent=2)
+          "
+
+      - name: Commit and push version.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add version.json
+          git diff --staged --quiet || (git commit -m "Update version.json to v${{ steps.version.outputs.version }} [skip ci]" && git push origin main)
