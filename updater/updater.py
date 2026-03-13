@@ -1,6 +1,10 @@
 """
 Updater — checks GitHub for new versions, downloads and installs updates.
 Works with any Python tkinter app. All app-specific values passed as parameters.
+
+Supports:
+  - Windows: downloads .exe, runs it, exits current app
+  - macOS:   downloads .dmg, mounts it, copies .app to /Applications, relaunches
 """
 
 import json
@@ -9,12 +13,17 @@ import tempfile
 import subprocess
 import sys
 import os
+import shutil
+import platform
 import threading
 import urllib.request
 import urllib.error
 from pathlib import Path
 
 from .version_manager import get_version, compare_versions, should_update
+
+IS_MAC = platform.system() == "Darwin"
+IS_WIN = platform.system() == "Windows"
 
 
 class Updater:
@@ -23,7 +32,6 @@ class Updater:
 
     Usage:
         updater = Updater(
-            current_version="1.0.0",
             github_username="pipilas",
             github_repo="anemi-payroll",
             app_name="Stamhad Payroll"
@@ -65,6 +73,12 @@ class Updater:
 
         update_available = should_update(self.current_version, latest, minimum)
 
+        # Pick the right download URL for this platform
+        if IS_MAC:
+            download_url = data.get("download_url_mac", data.get("download_url", ""))
+        else:
+            download_url = data.get("download_url_windows", data.get("download_url", ""))
+
         return {
             "update_available": update_available,
             "latest_version": latest,
@@ -73,7 +87,7 @@ class Updater:
             "mandatory": mandatory,
             "release_notes": data.get("release_notes", ""),
             "release_date": data.get("release_date", ""),
-            "download_url": data.get("download_url", ""),
+            "download_url": download_url,
             "checksum": data.get("checksum_sha256", ""),
         }
 
@@ -134,19 +148,120 @@ class Updater:
 
         return str(download_path)
 
-    def install_update(self, installer_path):
-        """Launch the installer and exit the current app."""
+    def install_update(self, installer_path, status_callback=None):
+        """
+        Install the update and relaunch.
+        - Windows: runs the .exe installer, exits current app
+        - macOS:   mounts DMG, copies .app to /Applications, relaunches
+        status_callback(message) is called with progress messages.
+        """
         if not os.path.exists(installer_path):
             raise FileNotFoundError(f"Installer not found: {installer_path}")
 
-        if sys.platform == "win32":
-            subprocess.Popen([installer_path], shell=True)
-        elif sys.platform == "darwin":
-            subprocess.Popen(["open", installer_path])
-        else:
-            subprocess.Popen(["xdg-open", installer_path])
+        def _status(msg):
+            if status_callback:
+                try:
+                    status_callback(msg)
+                except Exception:
+                    pass
 
-        sys.exit(0)
+        if IS_WIN:
+            _status("Launching installer...")
+            subprocess.Popen([installer_path], shell=True)
+            sys.exit(0)
+
+        elif IS_MAC:
+            self._install_mac(installer_path, _status)
+
+        else:
+            # Linux fallback
+            _status("Opening installer...")
+            subprocess.Popen(["xdg-open", installer_path])
+            sys.exit(0)
+
+    def _install_mac(self, dmg_path, _status):
+        """
+        macOS auto-install:
+        1. Mount the DMG
+        2. Find the .app inside
+        3. Copy it to /Applications (replacing old version)
+        4. Unmount the DMG
+        5. Relaunch from /Applications
+        """
+        mount_point = None
+
+        try:
+            # ── Step 1: Mount DMG ────────────────────────────────────────────
+            _status("Mounting disk image...")
+            result = subprocess.run(
+                ["hdiutil", "attach", dmg_path, "-nobrowse", "-noverify", "-noautoopen"],
+                capture_output=True, text=True, timeout=60
+            )
+            if result.returncode != 0:
+                raise RuntimeError(f"Failed to mount DMG: {result.stderr}")
+
+            # Parse mount point from hdiutil output
+            for line in result.stdout.strip().split("\n"):
+                parts = line.split("\t")
+                if len(parts) >= 3:
+                    mount_point = parts[-1].strip()
+
+            if not mount_point or not os.path.isdir(mount_point):
+                raise RuntimeError("Could not determine DMG mount point.")
+
+            # ── Step 2: Find the .app ────────────────────────────────────────
+            _status("Finding application...")
+            app_name = None
+            for item in os.listdir(mount_point):
+                if item.endswith(".app"):
+                    app_name = item
+                    break
+
+            if not app_name:
+                raise RuntimeError("No .app found inside the DMG.")
+
+            source_app = os.path.join(mount_point, app_name)
+            dest_app = os.path.join("/Applications", app_name)
+
+            # ── Step 3: Remove old version and copy new one ──────────────────
+            _status("Installing update...")
+            if os.path.exists(dest_app):
+                shutil.rmtree(dest_app)
+
+            shutil.copytree(source_app, dest_app)
+            _status("Update installed!")
+
+            # ── Step 4: Unmount DMG ──────────────────────────────────────────
+            try:
+                subprocess.run(
+                    ["hdiutil", "detach", mount_point, "-quiet"],
+                    timeout=30, capture_output=True
+                )
+            except Exception:
+                pass  # Non-critical
+
+            # Clean up downloaded DMG
+            try:
+                os.remove(dmg_path)
+            except Exception:
+                pass
+
+            # ── Step 5: Relaunch ─────────────────────────────────────────────
+            _status("Relaunching...")
+            subprocess.Popen(["open", dest_app])
+            sys.exit(0)
+
+        except Exception as e:
+            # Try to unmount on error
+            if mount_point:
+                try:
+                    subprocess.run(
+                        ["hdiutil", "detach", mount_point, "-quiet"],
+                        timeout=15, capture_output=True
+                    )
+                except Exception:
+                    pass
+            raise RuntimeError(f"macOS install failed: {e}")
 
     def is_mandatory_update(self, server_data):
         """Returns True if the update is mandatory or below minimum version."""

@@ -1,5 +1,5 @@
 """
-Update Dialog — clean tkinter popups for update available / downloading.
+Update Dialog — clean tkinter popups for update available / downloading / installing.
 """
 
 import tkinter as tk
@@ -19,6 +19,7 @@ FG_SEC    = "#374151"
 FG_MUTED  = "#6B7280"
 ACCENT    = "#4F46E5"
 ACCENT_HV = "#4338CA"
+SUCCESS   = "#059669"
 DANGER    = "#EF4444"
 DANGER_HV = "#DC2626"
 GREY_BTN  = "#F3F4F6"
@@ -171,30 +172,30 @@ class UpdateAvailableDialog(tk.Toplevel):
                      bg=BG_CARD, fg=FG_MUTED, font=(FONT, 9)).pack(pady=(4, 0))
 
     def _start_download(self):
-        """Switch to download progress dialog."""
+        """Switch to download + install progress dialog."""
         self.destroy()
-        DownloadProgressDialog(
-            self.master, self.updater, self.info)
+        DownloadAndInstallDialog(self.master, self.updater, self.info)
 
 
-class DownloadProgressDialog(tk.Toplevel):
-    """Download progress popup with real progress bar."""
+class DownloadAndInstallDialog(tk.Toplevel):
+    """Download + auto-install progress popup."""
 
     def __init__(self, parent, updater, info):
         super().__init__(parent)
         self.updater = updater
         self.info = info
+        self.parent_window = parent
 
-        self.title("Downloading Update...")
+        self.title("Updating...")
         self.configure(bg=BG_CARD)
-        self.geometry("420x220")
+        self.geometry("420x250")
         self.resizable(False, False)
         self.transient(parent)
         self.grab_set()
-        self.protocol("WM_DELETE_WINDOW", lambda: None)  # Prevent close during download
+        self.protocol("WM_DELETE_WINDOW", lambda: None)  # Prevent close during update
 
         self._build_ui()
-        self._start_download()
+        self._start()
 
     def _build_ui(self):
         pad = 28
@@ -202,8 +203,9 @@ class DownloadProgressDialog(tk.Toplevel):
         hdr = tk.Frame(self, bg=ACCENT, height=44)
         hdr.pack(fill="x")
         hdr.pack_propagate(False)
-        tk.Label(hdr, text="Downloading Update...", bg=ACCENT, fg="#FFFFFF",
-                 font=(FONT, 13, "bold")).pack(side="left", padx=pad, pady=8)
+        self.hdr_label = tk.Label(hdr, text="Downloading Update...", bg=ACCENT,
+                                   fg="#FFFFFF", font=(FONT, 13, "bold"))
+        self.hdr_label.pack(side="left", padx=pad, pady=8)
 
         body = tk.Frame(self, bg=BG_CARD)
         body.pack(fill="both", expand=True, padx=pad, pady=16)
@@ -230,26 +232,50 @@ class DownloadProgressDialog(tk.Toplevel):
                                     font=(FONT, 9))
         self.size_label.pack(anchor="w")
 
-        self.status_label = tk.Label(body, text="Please wait...", bg=BG_CARD,
+        self.status_label = tk.Label(body, text="Downloading...", bg=BG_CARD,
                                       fg=FG_MUTED, font=(FONT, 10))
         self.status_label.pack(anchor="w", pady=(6, 0))
 
-    def _start_download(self):
+        # Error buttons frame (hidden initially)
+        self.btn_frame = tk.Frame(self, bg=BG_CARD)
+
+    def _start(self):
         url = self.info.get("download_url", "")
         checksum = self.info.get("checksum", "")
 
         def _worker():
             try:
+                # ── Phase 1: Download ────────────────────────────────────
                 path = self.updater.download_update(
                     url, checksum, progress_callback=self._on_progress)
-                self.after(0, lambda: self._on_complete(path))
+
+                # ── Phase 2: Install ─────────────────────────────────────
+                self.after(0, lambda: self._switch_to_install_phase())
+
+                self.updater.install_update(
+                    path,
+                    status_callback=lambda msg: self.after(
+                        0, lambda m=msg: self.status_label.config(text=m))
+                )
+
             except ValueError as e:
-                # Checksum mismatch
                 self.after(0, lambda: self._on_error(str(e)))
             except Exception as e:
                 self.after(0, lambda: self._on_error(str(e)))
 
         threading.Thread(target=_worker, daemon=True).start()
+
+    def _switch_to_install_phase(self):
+        """Update UI to show installation progress."""
+        self.hdr_label.config(text="Installing Update...")
+        self.progress["value"] = 100
+        self.pct_label.config(text="100%")
+        self.status_label.config(text="Installing... please wait", fg=ACCENT)
+
+        # Change progress bar color to green
+        style = ttk.Style()
+        style.configure("Update.Horizontal.TProgressbar",
+                         background=SUCCESS)
 
     def _on_progress(self, downloaded, total):
         """Called from download thread — schedules UI update on main thread."""
@@ -269,18 +295,6 @@ class DownloadProgressDialog(tk.Toplevel):
         except Exception:
             pass
 
-    def _on_complete(self, installer_path):
-        """Download complete and verified — install."""
-        self.status_label.config(text="Installing...", fg=ACCENT)
-        self.progress["value"] = 100
-        self.pct_label.config(text="100%")
-        self.update()
-
-        try:
-            self.updater.install_update(installer_path)
-        except Exception as e:
-            self._on_error(f"Installation failed: {e}")
-
     def _on_error(self, msg):
         """Show error and allow retry or close."""
         self.status_label.config(text="", fg=FG_MUTED)
@@ -288,33 +302,39 @@ class DownloadProgressDialog(tk.Toplevel):
         self.size_label.config(text="")
         self.progress["value"] = 0
 
+        # Reset header
+        self.hdr_label.config(text="Update Failed")
+        style = ttk.Style()
+        style.configure("Update.Horizontal.TProgressbar", background=DANGER)
+
         error_msg = str(msg)
         if "checksum" in error_msg.lower() or "corrupted" in error_msg.lower():
             display = "Download corrupted \u2014 please try again."
+        elif "install" in error_msg.lower():
+            display = f"Installation failed: {error_msg[:120]}"
         else:
-            display = f"Download failed: {error_msg[:100]}"
+            display = f"Update failed: {error_msg[:120]}"
 
         self.status_label.config(text=display, fg=DANGER)
 
         # Allow closing now
         self.protocol("WM_DELETE_WINDOW", self.destroy)
 
-        btn_frame = tk.Frame(self, bg=BG_CARD)
-        btn_frame.pack(pady=(0, 10))
+        self.btn_frame.pack(pady=(0, 10))
 
-        retry_btn = tk.Label(btn_frame, text="  Retry  ", bg=ACCENT, fg="#FFFFFF",
-                              font=(FONT, 10, "bold"), padx=14, pady=6,
-                              cursor="hand2")
+        retry_btn = tk.Label(self.btn_frame, text="  Retry  ", bg=ACCENT,
+                              fg="#FFFFFF", font=(FONT, 10, "bold"), padx=14,
+                              pady=6, cursor="hand2")
         retry_btn.pack(side="left", padx=4)
         retry_btn.bind("<Button-1>", lambda e: self._retry())
 
-        close_btn = tk.Label(btn_frame, text="  Close  ", bg=GREY_BTN,
+        close_btn = tk.Label(self.btn_frame, text="  Close  ", bg=GREY_BTN,
                               fg=GREY_BTN_FG, font=(FONT, 10), padx=14, pady=6,
                               cursor="hand2")
         close_btn.pack(side="left", padx=4)
         close_btn.bind("<Button-1>", lambda e: self.destroy())
 
     def _retry(self):
-        """Retry download."""
+        """Retry the full download + install."""
         self.destroy()
-        DownloadProgressDialog(self.master, self.updater, self.info)
+        DownloadAndInstallDialog(self.master, self.updater, self.info)
