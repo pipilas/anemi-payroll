@@ -1734,18 +1734,6 @@ def _launch_app(email, display_name, role, uid="", restaurant_name=""):
     except Exception:
         pass
 
-    # ── Start updater check in background ────────────────────────────────
-    try:
-        from updater import Updater
-        updater = Updater(
-            github_username="pipilas",
-            github_repo="anemi-payroll",
-            app_name="Stamhad Payroll",
-        )
-        updater.check_and_prompt(parent_window=app)
-    except Exception:
-        pass  # Updater fails silently
-
     app.mainloop()
 
 
@@ -1798,5 +1786,19 @@ def _show_update_error(app, msg):
 #  ENTRY POINT
 # ═══════════════════════════════════════════════════════════════════════════════
 if __name__ == "__main__":
+    # ── Silent auto-update BEFORE anything else ──────────────────────────
+    # If an update is found, it downloads, installs, relaunches, and exits.
+    # If no update (or no internet), it continues to the login screen.
+    try:
+        from updater import Updater
+        _updater = Updater(
+            github_username="pipilas",
+            github_repo="anemi-payroll",
+            app_name="Stamhad Payroll",
+        )
+        _updater.silent_auto_update()
+    except Exception:
+        pass  # Any failure — just launch the app normally
+
     import login_screen
     login_screen.require_login(_launch_app)

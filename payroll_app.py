@@ -305,10 +305,57 @@ class Toast:
 #  DATA MANAGER
 # ═══════════════════════════════════════════════════════════════════════════════
 class DataManager:
-    def __init__(self):
+    def __init__(self, firebase_uid=None):
         CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-        self.positions = self._load_json(POS_FILE, [])
-        self.employees = self._load_json(EMP_FILE, [])
+
+        print(f"[DataManager] Init with firebase_uid={firebase_uid!r}")
+
+        # ── Firebase cloud storage (per-restaurant) ────────────────────────
+        self.fb = None
+        if firebase_uid:
+            try:
+                from firebase_db import FirebaseDB
+                self.fb = FirebaseDB(firebase_uid)
+            except Exception as e:
+                print(f"[DataManager] Firebase init failed: {e}")
+
+        # ── Load data: try Firebase first, fall back to local ──────────────
+        self.positions = self._load_positions()
+        self.employees = self._load_employees()
+
+        # ── One-time migration: upload local data to Firebase ──────────────
+        if self.fb:
+            try:
+                local_emp = self._load_json(EMP_FILE, [])
+                local_pos = self._load_json(POS_FILE, [])
+                self.fb.migrate_if_needed(local_emp, local_pos)
+            except Exception:
+                pass
+
+    def _load_employees(self):
+        """Load employees from Firebase, fall back to local file."""
+        if self.fb:
+            try:
+                data = self.fb.load_employees()
+                if data is not None:
+                    # Also save locally as cache
+                    self._save_local(EMP_FILE, data)
+                    return data
+            except Exception as e:
+                print(f"[DataManager] Firebase employee load failed: {e}")
+        return self._load_json(EMP_FILE, [])
+
+    def _load_positions(self):
+        """Load positions from Firebase, fall back to local file."""
+        if self.fb:
+            try:
+                data = self.fb.load_positions()
+                if data is not None:
+                    self._save_local(POS_FILE, data)
+                    return data
+            except Exception as e:
+                print(f"[DataManager] Firebase position load failed: {e}")
+        return self._load_json(POS_FILE, [])
 
     @staticmethod
     def _load_json(path, default):
@@ -321,7 +368,23 @@ class DataManager:
             traceback.print_exc()
         return copy.deepcopy(default)
 
+    @staticmethod
+    def _save_local(path, data):
+        """Save to local file (cache)."""
+        try:
+            with open(path, "w") as f:
+                json.dump(data, f, indent=2)
+        except Exception:
+            pass
+
     def save_pos(self):
+        # Save to Firebase
+        if self.fb:
+            try:
+                self.fb.save_positions(self.positions)
+            except Exception as e:
+                print(f"[DataManager] Firebase save positions failed: {e}")
+        # Always save locally too (as cache)
         try:
             with open(POS_FILE, "w") as f:
                 json.dump(self.positions, f, indent=2)
@@ -329,6 +392,13 @@ class DataManager:
             print(f"[ERROR] Failed to save positions: {e}")
 
     def save_emp(self):
+        # Save to Firebase
+        if self.fb:
+            try:
+                self.fb.save_employees(self.employees)
+            except Exception as e:
+                print(f"[DataManager] Firebase save employees failed: {e}")
+        # Always save locally too (as cache)
         try:
             with open(EMP_FILE, "w") as f:
                 json.dump(self.employees, f, indent=2)
@@ -472,7 +542,28 @@ class DataManager:
 
         self.write_csv(folder / "weekly_tips.csv", tips_f, tip_rows)
 
+        # ── Sync to Firebase ───────────────────────────────────────────────
+        if self.fb:
+            try:
+                # Get only this day's rows for Firebase
+                day_foh = [r for r in foh_rows if r.get("day") == day_name]
+                day_boh = [r for r in boh_rows if r.get("day") == day_name]
+                day_tips = [r for r in tip_rows if r.get("day") == day_name]
+                self.fb.save_week_day(mon.isoformat(), day_name, day_foh, day_boh, day_tips)
+            except Exception as e:
+                print(f"[DataManager] Firebase save_day failed: {e}")
+
     def load_day(self, mon, day_name):
+        # ── Try Firebase first ─────────────────────────────────────────────
+        if self.fb:
+            try:
+                foh, boh, tips = self.fb.load_week_day(mon.isoformat(), day_name)
+                if foh is not None:
+                    return foh, boh, tips
+            except Exception as e:
+                print(f"[DataManager] Firebase load_day failed: {e}")
+
+        # ── Fall back to local CSV ─────────────────────────────────────────
         folder = self.wk(mon)
         foh = [r for r in self.read_csv(folder / "foh_hours.csv") if r.get("day") == day_name]
         boh = [r for r in self.read_csv(folder / "boh_hours.csv") if r.get("day") == day_name]
@@ -701,7 +792,7 @@ class App(tk.Tk):
         self.minsize(MIN_W, MIN_H)
         self.geometry("1160x820")
 
-        self.dm = DataManager()
+        self.dm = DataManager(firebase_uid=getattr(self, '_logged_in_uid', None))
         self.toast = Toast(self)
         self.sel_date = date.today()
         self.cur_mon = monday_of(self.sel_date)

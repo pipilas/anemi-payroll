@@ -272,6 +272,36 @@ class Updater:
             return True
         return False
 
+    def silent_auto_update(self):
+        """
+        Fully silent auto-update. Call BEFORE launching the main app.
+        - Checks GitHub for a new version
+        - If found, downloads and installs silently
+        - Relaunches the new version, exits current process
+        - If no update or any error, returns silently so the app can start normally
+        """
+        try:
+            result = self.check_for_updates()
+        except Exception:
+            return  # No internet or error — skip silently
+
+        if not result.get("update_available"):
+            return  # Already up to date
+
+        url = result.get("download_url", "")
+        checksum = result.get("checksum", "")
+
+        if not url:
+            return  # No download URL — skip
+
+        try:
+            # Download
+            installer_path = self.download_update(url, checksum)
+            # Install and relaunch (this calls sys.exit on success)
+            self.install_update(installer_path)
+        except Exception:
+            return  # Download or install failed — skip, launch current version
+
     def check_and_prompt(self, parent_window=None):
         """
         Check for updates in a background thread.

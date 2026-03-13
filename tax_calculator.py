@@ -1,7 +1,8 @@
 """
 Anemi Restaurant — Tax Calculator Module
 All tax computation logic for federal, NY State, NYC, Yonkers, FICA, and employer taxes.
-Reads brackets/rates from tax_tables_2025.json — nothing is hardcoded.
+Reads brackets/rates from Firebase (shared across all restaurants).
+Falls back to local tax_tables_2025.json if Firebase is unreachable.
 """
 
 import json
@@ -14,6 +15,23 @@ _tables = None
 def _load_tables():
     global _tables
     if _tables is None:
+        # Try Firebase first (shared global tax tables)
+        try:
+            from firebase_db import load_tax_tables_from_firebase
+            remote = load_tax_tables_from_firebase()
+            if remote:
+                _tables = remote
+                # Cache locally so offline works
+                try:
+                    with open(_TAX_TABLES_PATH, "w") as f:
+                        json.dump(remote, f, indent=2)
+                except Exception:
+                    pass
+                return _tables
+        except Exception:
+            pass
+
+        # Fall back to local file
         with open(_TAX_TABLES_PATH) as f:
             _tables = json.load(f)
     return _tables
