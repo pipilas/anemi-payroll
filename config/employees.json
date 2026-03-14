@@ -9,20 +9,20 @@
     ],
     "sort_order": 0,
     "tax_info": {
-      "tax_enabled": true,
-      "federal_filing_status": "Single",
-      "w4_version": "Pre-2020 Old W-4",
-      "multiple_jobs": false,
-      "dependents_amount": "0",
-      "other_income": "0",
       "deductions": "0",
-      "extra_withholding": "0",
+      "dependents_amount": "0",
       "exempt_federal": false,
-      "ny_filing_status": "Single",
-      "ny_additional_withholding": "0",
+      "exempt_ny_state": false,
+      "extra_withholding": "0",
+      "federal_filing_status": "Single",
       "lives_in_nyc": true,
       "lives_in_yonkers": false,
-      "exempt_ny_state": false
+      "multiple_jobs": false,
+      "ny_additional_withholding": "0",
+      "ny_filing_status": "Single",
+      "other_income": "0",
+      "tax_enabled": true,
+      "w4_version": "Pre-2020 Old W-4"
     }
   },
   {
@@ -41,24 +41,27 @@
     "positions": [
       {
         "position_name": "Bartender"
+      },
+      {
+        "position_name": "Floor Manager"
       }
     ],
     "sort_order": 2,
     "tax_info": {
-      "tax_enabled": true,
-      "federal_filing_status": "Single",
-      "w4_version": "2020+ New W-4",
-      "multiple_jobs": false,
-      "dependents_amount": "0",
-      "other_income": "0",
       "deductions": "0",
-      "extra_withholding": "0",
+      "dependents_amount": "0",
       "exempt_federal": false,
-      "ny_filing_status": "Single",
-      "ny_additional_withholding": "0",
+      "exempt_ny_state": false,
+      "extra_withholding": "0",
+      "federal_filing_status": "Single",
       "lives_in_nyc": true,
       "lives_in_yonkers": false,
-      "exempt_ny_state": false
+      "multiple_jobs": false,
+      "ny_additional_withholding": "0",
+      "ny_filing_status": "Single",
+      "other_income": "0",
+      "tax_enabled": true,
+      "w4_version": "2020+ New W-4"
     }
   },
   {
@@ -226,60 +229,78 @@
     "name": "Elvira Espinobarros",
     "positions": [
       {
-        "position_name": "Kitchen"
+        "position_name": "Kitchen $18"
       }
     ],
-    "sort_order": 0
+    "sort_order": 0,
+    "tax_info": {
+      "tax_enabled": false
+    }
   },
   {
     "id": "RDI5IH",
     "name": "Jessica Hernandez",
     "positions": [
       {
-        "position_name": "Kitchen"
+        "position_name": "Kitchen $18"
       }
     ],
-    "sort_order": 1
+    "sort_order": 1,
+    "tax_info": {
+      "tax_enabled": false
+    }
   },
   {
     "id": "D6B0K8",
     "name": "Sylvia Garcia",
     "positions": [
       {
-        "position_name": "Kitchen"
+        "position_name": "Kitchen $18"
       }
     ],
-    "sort_order": 2
+    "sort_order": 2,
+    "tax_info": {
+      "tax_enabled": false
+    }
   },
   {
     "id": "3H0PVS",
     "name": "Abdil Izai Romeo",
     "positions": [
       {
-        "position_name": "Kitchen"
+        "position_name": "Kitchen $24"
       }
     ],
-    "sort_order": 3
+    "sort_order": 3,
+    "tax_info": {
+      "tax_enabled": false
+    }
   },
   {
     "id": "B4J655",
     "name": "Beltran Isael",
     "positions": [
       {
-        "position_name": "Kitchen"
+        "position_name": "Kitchen $24"
       }
     ],
-    "sort_order": 4
+    "sort_order": 4,
+    "tax_info": {
+      "tax_enabled": false
+    }
   },
   {
     "id": "KNS9HP",
     "name": "Maria Castro",
     "positions": [
       {
-        "position_name": "Kitchen"
+        "position_name": "Kitchen $18"
       }
     ],
-    "sort_order": 5
+    "sort_order": 5,
+    "tax_info": {
+      "tax_enabled": false
+    }
   },
   {
     "id": "CVC0AI",
@@ -299,7 +320,10 @@
         "position_name": "Dishwasher"
       }
     ],
-    "sort_order": 7
+    "sort_order": 7,
+    "tax_info": {
+      "tax_enabled": false
+    }
   },
   {
     "id": "6IBKB5",
@@ -316,10 +340,13 @@
     "name": "Edgar",
     "positions": [
       {
-        "position_name": "Chef"
+        "position_name": "Head Chef"
       }
     ],
-    "sort_order": 9
+    "sort_order": 9,
+    "tax_info": {
+      "tax_enabled": false
+    }
   },
   {
     "id": "OZMHOH",
@@ -329,7 +356,10 @@
         "position_name": "Chef"
       }
     ],
-    "sort_order": 10
+    "sort_order": 10,
+    "tax_info": {
+      "tax_enabled": false
+    }
   },
   {
     "id": "5VZJHV",

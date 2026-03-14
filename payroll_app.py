@@ -1395,6 +1395,7 @@ class App(tk.Tk):
 
         self._has_saved = len(saved_blocks) > 0
         self._day_tips = {}
+        self._tip_entry_values = {}  # reset on new day load
 
         content = tk.Frame(self.main, bg=BG_PAGE)
         content.pack(fill="both", expand=True)
@@ -1449,6 +1450,7 @@ class App(tk.Tk):
 
     def _day_tab(self, name):
         self._snapshot_hours_from_widgets()
+        self._snapshot_tips_from_widgets()
 
         for n, b in self._day_tab_btns.items():
             if n == name:
@@ -1496,6 +1498,22 @@ class App(tk.Tk):
             except Exception:
                 pass
         self._checked_emp_ids = new_checked
+
+    def _snapshot_tips_from_widgets(self):
+        """Capture tip entry values before destroying the Tips tab widgets."""
+        if not hasattr(self, "_shift_tip_entries"):
+            return
+        if not self._shift_tip_entries:
+            return
+        if not hasattr(self, "_tip_entry_values"):
+            self._tip_entry_values = {}
+        for shift, entries in self._shift_tip_entries.items():
+            try:
+                fl = safe_float(entries["floor"].get())
+                br = safe_float(entries["bar"].get())
+                self._tip_entry_values[shift] = {"floor": fl, "bar": br}
+            except Exception:
+                pass
 
     def _gather_blocks(self):
         self._snapshot_hours_from_widgets()
@@ -1804,7 +1822,18 @@ class App(tk.Tk):
             disp.pack(fill="x", padx=24)
             self._shift_tip_display[shift] = disp
 
-            if saved_fl or saved_br:
+            # Use snapshotted values (user-entered) if available, else saved values
+            tip_vals = getattr(self, "_tip_entry_values", {}).get(shift, {})
+            restore_fl = tip_vals.get("floor", saved_fl)
+            restore_br = tip_vals.get("bar", saved_br)
+            if tip_vals:
+                # Overwrite the default saved values with what user had entered
+                fe.delete(0, "end")
+                fe.insert(0, str(round(restore_fl, 2)) if restore_fl else "0")
+                be.delete(0, "end")
+                be.insert(0, str(round(restore_br, 2)) if restore_br else "0")
+
+            if restore_fl or restore_br:
                 self.after(100, lambda s=shift: self._calc_tips(s))
 
     def _calc_tips(self, shift):
@@ -1923,6 +1952,7 @@ class App(tk.Tk):
     def _save_day(self):
         self._snapshot_hours_from_widgets()
         self._snapshot_checked_from_widgets()
+        self._snapshot_tips_from_widgets()
 
         if hasattr(self, "_shift_tip_entries"):
             for shift in self._shift_tip_entries:
@@ -2561,9 +2591,102 @@ class App(tk.Tk):
                 tk.Label(c, text=label, bg=BG_CARD, fg=FG_SEC,
                          font=(FONT, 10)).pack(anchor="w")
 
-            # ── Daily Breakdown Table ─────────────────────────────────────
-            SectionBar(scroll, "Daily Breakdown", color=ACCENT, bg=BG_PAGE).pack(
-                fill="x", padx=20, pady=(10, 4))
+            # ── Daily Breakdown Table (editable hours) ─────────────────────
+            edit_hdr = tk.Frame(scroll, bg=BG_PAGE)
+            edit_hdr.pack(fill="x", padx=20, pady=(10, 4))
+            SectionBar(edit_hdr, "Daily Breakdown", color=ACCENT, bg=BG_PAGE).pack(
+                side="left")
+            # Track editable hours entries: list of {day, shift, position, entry_widget}
+            profile_hours_entries = []
+
+            def save_profile_hours():
+                """Save edited hours from profile back to the day data."""
+                # Group changes by day
+                changes_by_day = {}
+                for phe in profile_hours_entries:
+                    day_n = phe["day"]
+                    new_hrs = safe_float(phe["widget"].get())
+                    changes_by_day.setdefault(day_n, []).append({
+                        "day": day_n, "shift": phe["shift"],
+                        "position": phe["position"], "hours": new_hrs,
+                        "emp_id": emp["id"], "emp_name": emp["name"],
+                    })
+
+                for day_n, new_blocks in changes_by_day.items():
+                    # Load existing day data
+                    foh_saved, boh_saved, tip_saved = self.dm.load_day(mon, day_n)
+                    all_rows = foh_saved + boh_saved
+
+                    # Update this employee's hours in the existing rows
+                    for nb in new_blocks:
+                        matched = False
+                        for r in all_rows:
+                            if (r.get("emp_id") == emp["id"] and
+                                r.get("shift") == nb["shift"] and
+                                r.get("position") == nb["position"]):
+                                r["hours"] = nb["hours"]
+                                matched = True
+                                break
+                        if not matched:
+                            # New entry — add it
+                            all_rows.append({
+                                "emp_id": emp["id"],
+                                "employee_name": emp["name"],
+                                "position": nb["position"],
+                                "shift": nb["shift"],
+                                "hours": nb["hours"],
+                                "day": day_n,
+                            })
+
+                    # Rebuild blocks in the format save_day expects
+                    save_blocks = []
+                    for r in all_rows:
+                        save_blocks.append({
+                            "emp_id": r.get("emp_id", ""),
+                            "emp_name": r.get("employee_name", ""),
+                            "position_name": r.get("position", ""),
+                            "shift": r.get("shift", "Dinner"),
+                            "hours": safe_float(r.get("hours", 0)),
+                        })
+
+                    # Rebuild tips dict from tip_saved
+                    tips_dict = {}
+                    for t in tip_saved:
+                        shift = t.get("shift", "Dinner")
+                        if shift not in tips_dict:
+                            tips_dict[shift] = {
+                                "floor_tips": 0, "bar_tips": 0,
+                                "floor_breakdown": [], "bar_breakdown": [],
+                            }
+                        ft = safe_float(t.get("floor_tip", 0))
+                        bt = safe_float(t.get("bar_tip", 0))
+                        tips_dict[shift]["floor_tips"] += ft
+                        tips_dict[shift]["bar_tips"] += bt
+                        if ft > 0:
+                            tips_dict[shift]["floor_breakdown"].append({
+                                "emp_id": t.get("emp_id", ""),
+                                "name": t.get("employee_name", ""),
+                                "position": t.get("position", ""),
+                                "points": safe_float(t.get("points", 0)),
+                                "amount": ft,
+                            })
+                        if bt > 0:
+                            tips_dict[shift]["bar_breakdown"].append({
+                                "emp_id": t.get("emp_id", ""),
+                                "name": t.get("employee_name", ""),
+                                "role": t.get("position", ""),
+                                "amount": bt,
+                            })
+
+                    self.dm.save_day(mon, day_n, save_blocks, tips_dict)
+
+                # Refresh profile
+                build_profile()
+                self.toast.show("Hours updated!")
+
+            save_btn = Btn(edit_hdr, text="\u2713  Save Hours", style="primary",
+                           command=save_profile_hours)
+            save_btn.pack(side="right", padx=4)
 
             tbl = Card(scroll)
             tbl.pack(fill="x", padx=20, pady=4)
@@ -2656,6 +2779,17 @@ class App(tk.Tk):
                             tk.Label(cell_f, text=entry["position"], bg=bg, fg=FG,
                                      font=(FONT, 9), anchor="w",
                                      padx=2).pack(side="left")
+                        elif j == 4:
+                            # Editable hours cell
+                            hrs_entry = Inp(tbl, width=tbl_widths[j])
+                            hrs_entry.insert(0, hrs_str)
+                            hrs_entry.grid(row=grid_row, column=j, sticky="we",
+                                           padx=2, pady=1)
+                            profile_hours_entries.append({
+                                "day": day_name, "shift": entry["shift"],
+                                "position": entry["position"],
+                                "widget": hrs_entry,
+                            })
                         else:
                             tk.Label(tbl, text=v, bg=bg, fg=fg_c,
                                      font=(FONT, 9), width=tbl_widths[j],

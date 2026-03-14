@@ -1,10 +1,10 @@
 {
-  "latest_version": "1.0.3",
+  "latest_version": "1.0.4",
   "minimum_version": "1.0.0",
-  "release_date": "2026-03-13",
-  "download_url_windows": "https://github.com/pipilas/anemi-payroll/releases/download/v1.0.3/StamhadPayroll.exe",
-  "download_url_mac": "https://github.com/pipilas/anemi-payroll/releases/download/v1.0.3/StamhadPayroll-1.0.3-mac.dmg",
-  "release_notes": "- Offline sync: changes made offline auto-sync to Firebase when back online\n- No more missing data between devices",
+  "release_date": "2026-03-14",
+  "download_url_windows": "https://github.com/pipilas/anemi-payroll/releases/download/v1.0.4/StamhadPayroll.exe",
+  "download_url_mac": "https://github.com/pipilas/anemi-payroll/releases/download/v1.0.4/StamhadPayroll-1.0.4-mac.dmg",
+  "release_notes": "- Fixed tips not saving when changing positions/hours\n- Tips are now preserved across tab switches\n- Added per-day hours editing in employee profile",
   "mandatory": false,
   "checksum_sha256": ""
 }

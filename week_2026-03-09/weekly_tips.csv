@@ -1,12 +1,1 @@
 day,shift,emp_id,employee_name,position,points,floor_tip,bar_tip,total_tip
-Monday,Morning,W7Q0K3,Froso Pavlidou,Server (Morning),10.0,67.0,0.0,67.0
-Monday,Dinner,A5DX1P,Kostas Stamkopoulos,Bartender,5.0,72.95,98.0,170.95
-Monday,Dinner,W7Q0K3,Froso Pavlidou,Server,10.0,145.91,0.0,145.91
-Monday,Dinner,LZCJQO,Mainor Lopez,Runner,7.0,102.14,0.0,102.14
-Tuesday,Morning,W7Q0K3,Froso Pavlidou,Server (Morning),10.0,23.0,0.0,23.0
-Tuesday,Dinner,U3PZQC,Mariana Kapandriti,Server,10.0,70.45,0.0,70.45
-Tuesday,Dinner,LZCJQO,Mainor Lopez,Runner,7.0,49.32,0.0,49.32
-Tuesday,Dinner,NJFTLF,Hirinio Nazario Jr,Bartender,5.0,35.23,23.0,58.23
-Thursday,Dinner,A5DX1P,Kostas Stamkopoulos,Bartender,5.0,20.45,23.0,43.45
-Thursday,Dinner,R98K4X,Theofilos Adalis,Server,10.0,40.91,0.0,40.91
-Thursday,Dinner,DHF3MJ,Daniel Vilchis,Runner,7.0,28.64,0.0,28.64

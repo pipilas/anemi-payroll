@@ -1,122 +1,140 @@
 [
   {
+    "bar_tip_share_pct": 0.0,
+    "department": "FOH",
+    "hourly_wage": 11.35,
     "name": "Bartender",
-    "department": "FOH",
-    "hourly_wage": 11.35,
-    "fixed_weekly_wage": null,
     "overtime_rate": 1.5,
-    "tip_points": 5.0,
-    "bar_tip_share_pct": 0.0,
-    "receives_bar_tips": true
+    "receives_bar_tips": true,
+    "tip_points": 5.0
   },
   {
+    "bar_tip_share_pct": 0,
+    "department": "FOH",
+    "hourly_wage": 11.35,
     "name": "Server",
-    "department": "FOH",
-    "hourly_wage": 11.35,
-    "fixed_weekly_wage": null,
     "overtime_rate": 1.5,
-    "tip_points": 10,
-    "bar_tip_share_pct": 0,
-    "receives_bar_tips": false
+    "receives_bar_tips": false,
+    "tip_points": 10
   },
   {
+    "bar_tip_share_pct": 0.0,
+    "department": "FOH",
+    "hourly_wage": 11.35,
     "name": "Runner",
-    "department": "FOH",
-    "hourly_wage": 11.35,
-    "fixed_weekly_wage": null,
     "overtime_rate": 1.5,
-    "tip_points": 7.0,
-    "bar_tip_share_pct": 0.0,
-    "receives_bar_tips": false
+    "receives_bar_tips": false,
+    "tip_points": 7.0
   },
   {
+    "bar_tip_share_pct": 0.0,
+    "department": "FOH",
+    "hourly_wage": 11.35,
     "name": "Busser",
-    "department": "FOH",
-    "hourly_wage": 11.35,
-    "fixed_weekly_wage": null,
     "overtime_rate": 1.5,
-    "tip_points": 5.0,
-    "bar_tip_share_pct": 0.0,
-    "receives_bar_tips": false
+    "receives_bar_tips": false,
+    "tip_points": 5.0
   },
   {
-    "name": "Barback",
-    "department": "FOH",
-    "hourly_wage": 11.35,
-    "fixed_weekly_wage": null,
-    "overtime_rate": 1.5,
-    "tip_points": 2.0,
     "bar_tip_share_pct": 20.0,
-    "receives_bar_tips": false
+    "department": "FOH",
+    "hourly_wage": 11.35,
+    "name": "Barback",
+    "overtime_rate": 1.5,
+    "receives_bar_tips": false,
+    "tip_points": 2.0
   },
   {
-    "name": "Host",
+    "bar_tip_share_pct": 0.0,
     "department": "FOH",
     "hourly_wage": 18.0,
-    "fixed_weekly_wage": null,
+    "name": "Host",
     "overtime_rate": 1.5,
-    "tip_points": 0.0,
-    "bar_tip_share_pct": 0.0,
-    "receives_bar_tips": false
+    "receives_bar_tips": false,
+    "tip_points": 0.0
   },
   {
-    "name": "Kitchen",
+    "bar_tip_share_pct": 0.0,
     "department": "BOH",
     "hourly_wage": 18.0,
-    "fixed_weekly_wage": null,
+    "name": "Kitchen $18",
     "overtime_rate": 1.5,
-    "tip_points": 0,
-    "bar_tip_share_pct": 0,
-    "receives_bar_tips": false
+    "receives_bar_tips": false,
+    "tip_points": 0.0
   },
   {
+    "bar_tip_share_pct": 0.0,
+    "department": "BOH",
+    "hourly_wage": 17.0,
     "name": "Dishwasher",
-    "department": "BOH",
-    "hourly_wage": 16.5,
-    "fixed_weekly_wage": null,
     "overtime_rate": 1.5,
-    "tip_points": 0,
-    "bar_tip_share_pct": 0,
-    "receives_bar_tips": false
+    "receives_bar_tips": false,
+    "tip_points": 0.0
   },
   {
+    "bar_tip_share_pct": 0.0,
+    "department": "BOH",
+    "hourly_wage": 17.0,
     "name": "Cleaner",
-    "department": "BOH",
-    "hourly_wage": 16.5,
-    "fixed_weekly_wage": null,
     "overtime_rate": 1.5,
-    "tip_points": 0,
-    "bar_tip_share_pct": 0,
-    "receives_bar_tips": false
+    "receives_bar_tips": false,
+    "tip_points": 0.0
   },
   {
-    "name": "Chef",
+    "bar_tip_share_pct": 0.0,
     "department": "BOH",
-    "hourly_wage": 25.0,
-    "fixed_weekly_wage": null,
+    "fixed_weekly_wage": 1200.0,
+    "hourly_wage": 0.0,
+    "name": "Head Chef",
     "overtime_rate": 1.5,
-    "tip_points": 0,
-    "bar_tip_share_pct": 0,
-    "receives_bar_tips": false
+    "receives_bar_tips": false,
+    "tip_points": 0.0
   },
   {
-    "name": "Server (Morning)",
+    "bar_tip_share_pct": 0.0,
     "department": "FOH",
     "hourly_wage": 20.0,
-    "fixed_weekly_wage": null,
+    "name": "Server (Morning)",
     "overtime_rate": 1.5,
-    "tip_points": 10.0,
-    "bar_tip_share_pct": 0.0,
-    "receives_bar_tips": false
+    "receives_bar_tips": false,
+    "tip_points": 10.0
   },
   {
+    "bar_tip_share_pct": 0.0,
+    "department": "FOH",
+    "fixed_weekly_wage": 1200.0,
+    "hourly_wage": 0.0,
     "name": "Manager",
+    "overtime_rate": 1.5,
+    "receives_bar_tips": false,
+    "tip_points": 0.0
+  },
+  {
+    "bar_tip_share_pct": 0.0,
     "department": "FOH",
     "hourly_wage": 0.0,
-    "fixed_weekly_wage": 1200.0,
+    "name": "Floor Manager",
     "overtime_rate": 1.5,
-    "tip_points": 0.0,
+    "receives_bar_tips": false,
+    "tip_points": 0.0
+  },
+  {
     "bar_tip_share_pct": 0.0,
-    "receives_bar_tips": false
+    "department": "BOH",
+    "hourly_wage": 24.0,
+    "name": "Kitchen $24",
+    "overtime_rate": 1.5,
+    "receives_bar_tips": false,
+    "tip_points": 0.0
+  },
+  {
+    "bar_tip_share_pct": 0.0,
+    "department": "BOH",
+    "fixed_weekly_wage": 800.0,
+    "hourly_wage": 0.0,
+    "name": "Chef",
+    "overtime_rate": 1.5,
+    "receives_bar_tips": false,
+    "tip_points": 0.0
   }
 ]
