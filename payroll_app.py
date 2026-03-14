@@ -6,16 +6,29 @@ labor cost in week view, button styling overhaul, FOH/BOH dropdown,
 Grand Total renamed to Total Labor.
 """
 
+import sys
 import tkinter as tk
 from tkinter import ttk, messagebox
 import json, csv, os, random, string, copy, platform, traceback
 from datetime import datetime, timedelta, date
 from pathlib import Path
 
+# ── Windows DPI fix: make GUI crisp on high-DPI displays ────────────────────
+if platform.system() == "Windows":
+    try:
+        import ctypes
+        ctypes.windll.shcore.SetProcessDpiAwareness(1)
+    except Exception:
+        try:
+            ctypes.windll.user32.SetProcessDPIAware()
+        except Exception:
+            pass
+
 # ═══════════════════════════════════════════════════════════════════════════════
 #  CONSTANTS
 # ═══════════════════════════════════════════════════════════════════════════════
-APP_TITLE    = "Stamhad Payroll"
+_VERSION     = (Path(__file__).parent / "version.txt").read_text().strip() if (Path(__file__).parent / "version.txt").exists() else "0.0.0"
+APP_TITLE    = f"Stamhad Payroll v{_VERSION}"
 MIN_W, MIN_H = 1040, 740
 BASE_DIR     = Path(__file__).parent
 CONFIG_DIR   = BASE_DIR / "config"

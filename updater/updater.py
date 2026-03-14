@@ -168,7 +168,9 @@ class Updater:
         if IS_WIN:
             _status("Launching installer...")
             subprocess.Popen([installer_path], shell=True)
-            sys.exit(0)
+            import time
+            time.sleep(0.5)
+            os._exit(0)
 
         elif IS_MAC:
             self._install_mac(installer_path, _status)
@@ -177,7 +179,7 @@ class Updater:
             # Linux fallback
             _status("Opening installer...")
             subprocess.Popen(["xdg-open", installer_path])
-            sys.exit(0)
+            os._exit(0)
 
     def _install_mac(self, dmg_path, _status):
         """
@@ -248,8 +250,11 @@ class Updater:
 
             # ── Step 5: Relaunch ─────────────────────────────────────────────
             _status("Relaunching...")
-            subprocess.Popen(["open", dest_app])
-            sys.exit(0)
+            import time
+            time.sleep(1)  # brief pause to let OS release locks
+            subprocess.Popen(["open", "-n", "-a", dest_app])
+            time.sleep(0.5)
+            os._exit(0)  # os._exit force-kills — sys.exit can be caught by threads
 
         except Exception as e:
             # Try to unmount on error
