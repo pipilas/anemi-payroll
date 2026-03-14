@@ -71,7 +71,7 @@ def _emp_dlg_v2(app, emp=None, open_tax_tab=False):
     content_area = tk.Frame(win, bg=BG_CARD)
     content_area.pack(fill="both", expand=True)
 
-    for tab_name in ["\U0001F464 General Info", "\U0001F4B0 Tax Info"]:
+    for tab_name in ["\U0001F464 General Info", "\U0001F4B0 Tax Info", "\u2702 % Reduction"]:
         f = tk.Frame(content_area, bg=BG_CARD)
         tab_frames[tab_name] = f
 
@@ -363,6 +363,112 @@ def _emp_dlg_v2(app, emp=None, open_tax_tab=False):
     update_toggle_display()
     build_tax_fields()
 
+    # ══════════════════════════════════════════════════════════════════════
+    #  TAB 3: % Reduction (check cashing / payroll deduction)
+    # ══════════════════════════════════════════════════════════════════════
+    red_frame = tab_frames["\u2702 % Reduction"]
+    red_scroll = ScrollFrame(red_frame, bg=BG_CARD)
+    red_scroll.pack(fill="both", expand=True)
+
+    red_info = emp.get("reduction", {}) if emp else {}
+
+    # Toggle card
+    red_toggle_card = tk.Frame(red_scroll, bg="#EEF2FF", highlightbackground=ACCENT,
+                               highlightthickness=1, padx=16, pady=12)
+    red_toggle_card.pack(fill="x", padx=20, pady=(12, 8))
+
+    tk.Label(red_toggle_card, text="Apply a % reduction to this employee's check?",
+             bg="#EEF2FF", fg=FG, font=(FONT, 12, "bold")).pack(anchor="w")
+
+    red_enabled_var = tk.BooleanVar(value=red_info.get("enabled", False))
+
+    red_toggle_row = tk.Frame(red_toggle_card, bg="#EEF2FF")
+    red_toggle_row.pack(fill="x", pady=(6, 4))
+    red_toggle_lbl = tk.Label(red_toggle_row, text="", bg="#EEF2FF",
+                              font=(FONT, 13, "bold"), cursor="hand2", padx=8)
+    red_toggle_lbl.pack(side="left")
+
+    tk.Label(red_toggle_card, text="OFF = Full pay  |  ON = Deduct % from total compensation",
+             bg="#EEF2FF", fg=FG_SEC, font=(FONT, 10)).pack(anchor="w")
+
+    # Percentage input area
+    red_fields_container = tk.Frame(red_scroll, bg=BG_CARD)
+    red_fields_container.pack(fill="x", padx=20, pady=8)
+
+    red_pct_entry = None  # will hold the Entry widget when enabled
+
+    def build_red_fields():
+        nonlocal red_pct_entry
+        for w in red_fields_container.winfo_children():
+            w.destroy()
+        red_pct_entry = None
+
+        if not red_enabled_var.get():
+            tk.Label(red_fields_container,
+                     text="\u2139\uFE0F  Enable reduction above to set the percentage",
+                     bg="#F9FAFB", fg=FG_SEC, font=(FONT, 12), justify="center",
+                     pady=40).pack(fill="x", pady=20)
+            return
+
+        card = tk.Frame(red_fields_container, bg=BG_CARD)
+        card.pack(fill="x", pady=8)
+
+        tk.Label(card, text="Reduction Percentage (%)", bg=BG_CARD, fg=FG,
+                 font=(FONT, 12, "bold")).pack(anchor="w", pady=(4, 0))
+        tk.Label(card, text="This percentage will be deducted from the employee's total pay",
+                 bg=BG_CARD, fg=FG_SEC, font=(FONT, 10)).pack(anchor="w", pady=(0, 6))
+
+        pct_row = tk.Frame(card, bg=BG_CARD)
+        pct_row.pack(anchor="w")
+
+        red_pct_entry = Inp(pct_row, width=8)
+        red_pct_entry.pack(side="left")
+        saved_pct = red_info.get("percentage", 10)
+        red_pct_entry.insert(0, str(saved_pct))
+
+        tk.Label(pct_row, text=" %", bg=BG_CARD, fg=FG,
+                 font=(FONT, 14, "bold")).pack(side="left")
+
+        # Preview
+        preview_frame = tk.Frame(card, bg="#F9FAFB", highlightbackground=BORDER,
+                                 highlightthickness=1)
+        preview_frame.pack(fill="x", pady=(12, 4))
+        tk.Label(preview_frame, text="\U0001F4CB Example:", bg="#F9FAFB", fg=FG_SEC,
+                 font=(FONT, 10, "bold")).pack(anchor="w", padx=10, pady=(6, 2))
+        tk.Label(preview_frame,
+                 text=f"If total pay = $1,000 and reduction = {saved_pct}%\n"
+                      f"Deduction = ${1000 * saved_pct / 100:.2f}  |  "
+                      f"Net pay = ${1000 - 1000 * saved_pct / 100:.2f}",
+                 bg="#F9FAFB", fg=FG, font=(FONT, 11), justify="left").pack(
+            anchor="w", padx=10, pady=(0, 8))
+
+    def toggle_red():
+        new_val = not red_enabled_var.get()
+        red_enabled_var.set(new_val)
+        update_red_display()
+        build_red_fields()
+
+    def update_red_display():
+        if red_enabled_var.get():
+            red_toggle_lbl.config(text="\u2705  ON — Reduction Enabled", fg=SUCCESS)
+        else:
+            red_toggle_lbl.config(text="\u26AA  OFF — Full Pay", fg=FG_SEC)
+
+    red_toggle_lbl.bind("<Button-1>", lambda e: toggle_red())
+    update_red_display()
+    build_red_fields()
+
+    def _collect_reduction():
+        info = {"enabled": red_enabled_var.get()}
+        if red_enabled_var.get() and red_pct_entry:
+            try:
+                info["percentage"] = float(red_pct_entry.get())
+            except (ValueError, tk.TclError):
+                info["percentage"] = 10
+        else:
+            info["percentage"] = red_info.get("percentage", 10)
+        return info
+
     # ── Warning label ─────────────────────────────────────────────────────
     warn_lbl = tk.Label(win, text="", bg=BG_CARD, fg=DANGER,
                         font=(FONT, 10, "bold"))
@@ -389,15 +495,18 @@ def _emp_dlg_v2(app, emp=None, open_tax_tab=False):
                 warn_lbl.config(text="\u26A0\uFE0F Filing status is required for tax calculation")
                 return
 
+        ri = _collect_reduction()
+
         if emp:
             emp["name"] = name
             emp["positions"] = assigned
             emp["tax_info"] = ti
+            emp["reduction"] = ri
         else:
             app.dm.employees.append({
                 "id": gen_id(), "name": name,
                 "positions": assigned, "sort_order": 9999,
-                "tax_info": ti,
+                "tax_info": ti, "reduction": ri,
             })
         app.dm.save_emp()
         win.destroy()
@@ -700,6 +809,48 @@ def _build_detail_inner(app, container, emp, emp_payroll, mon):
         Btn(info_card, text="Enable Tax Calculation \u2192", style="primary",
             command=lambda: _emp_dlg_v2(app, emp, open_tax_tab=True)).pack(
             anchor="w", pady=(8, 0))
+
+    # ── % Reduction Card ─────────────────────────────────────────────────
+    red_data = emp.get("reduction", {})
+    if red_data.get("enabled", False):
+        red_pct = red_data.get("percentage", 10)
+        # Compute net before reduction (after taxes if enabled, else gross)
+        if tax_on and taxes["tax_enabled"]:
+            pay_before_red = taxes["net_pay"]
+        else:
+            pay_before_red = gross_pay
+        red_amount = round(pay_before_red * red_pct / 100, 2)
+        pay_after_red = round(pay_before_red - red_amount, 2)
+
+        red_card = Card(scroll)
+        red_card.pack(fill="x", padx=8, pady=4)
+
+        tk.Label(red_card, text=f"CHECK REDUCTION ({red_pct}%)", bg=BG_CARD, fg=FG,
+                 font=(FONT, 13, "bold")).pack(anchor="w", pady=(0, 6))
+        tk.Frame(red_card, bg=BORDER, height=1).pack(fill="x")
+
+        r1 = tk.Frame(red_card, bg=BG_CARD)
+        r1.pack(fill="x", pady=2)
+        tk.Label(r1, text="Pay before reduction", bg=BG_CARD, fg=FG,
+                 font=(FONT, 11)).pack(side="left")
+        tk.Label(r1, text=fmt(pay_before_red), bg=BG_CARD, fg=FG,
+                 font=(FONT, 11)).pack(side="right")
+
+        r2 = tk.Frame(red_card, bg=BG_CARD)
+        r2.pack(fill="x", pady=2)
+        tk.Label(r2, text=f"Reduction ({red_pct}%)", bg=BG_CARD, fg=FG,
+                 font=(FONT, 11)).pack(side="left")
+        tk.Label(r2, text=f"\u2212{fmt(red_amount)}", bg=BG_CARD, fg=DANGER,
+                 font=(FONT, 11)).pack(side="right")
+
+        tk.Frame(red_card, bg=BORDER, height=1).pack(fill="x", pady=4)
+
+        final_row = tk.Frame(red_card, bg="#FEF3C7")
+        final_row.pack(fill="x", pady=(2, 0))
+        tk.Label(final_row, text="FINAL PAY (After Reduction)", bg="#FEF3C7",
+                 fg="#92400E", font=(FONT, 14, "bold"), padx=8, pady=6).pack(side="left")
+        tk.Label(final_row, text=fmt(pay_after_red), bg="#FEF3C7",
+                 fg="#92400E", font=(FONT, 14, "bold"), padx=8, pady=6).pack(side="right")
 
     # ── Employer Costs Card (always shown) ────────────────────────────────
     er_card = Card(scroll)
