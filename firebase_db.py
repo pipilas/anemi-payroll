@@ -163,6 +163,22 @@ class FirebaseDB:
         return foh, boh, tips
 
     # ══════════════════════════════════════════════════════════════════════════
+    #  BULK DOWNLOAD (fetch entire restaurant tree in one request)
+    # ══════════════════════════════════════════════════════════════════════════
+
+    def download_all(self):
+        """
+        Download all data for this restaurant in a single GET request.
+        Returns the full dict: {employees: [...], positions: [...], weeks: {...}}
+        Returns None on failure.
+        """
+        data = self._get("")
+        if data is None:
+            return None
+        print(f"[FirebaseDB] Downloaded all data for uid={self.uid[:8]}")
+        return data
+
+    # ══════════════════════════════════════════════════════════════════════════
     #  MIGRATION: upload local data to Firebase (one-time)
     # ══════════════════════════════════════════════════════════════════════════
 

@@ -1,10 +1,10 @@
 {
-  "latest_version": "1.1.1",
+  "latest_version": "1.1.2",
   "minimum_version": "1.0.0",
   "release_date": "2026-03-14",
-  "download_url_windows": "https://github.com/pipilas/anemi-payroll/releases/download/v1.1.1/StamhadPayroll.exe",
-  "download_url_mac": "https://github.com/pipilas/anemi-payroll/releases/download/v1.1.1/StamhadPayroll-1.1.1-mac.dmg",
-  "release_notes": "- Export files now let you choose where to save\n- Added % reduction per employee\n- Fixed payroll Firebase loading",
+  "download_url_windows": "https://github.com/pipilas/anemi-payroll/releases/download/v1.1.2/StamhadPayroll.exe",
+  "download_url_mac": "https://github.com/pipilas/anemi-payroll/releases/download/v1.1.2/StamhadPayroll-1.1.2-mac.dmg",
+  "release_notes": "- Offline-first: all data downloaded on login for instant loading\n- Background sync to Firebase every 15 seconds\n- App works smoothly with unstable internet",
   "mandatory": false,
   "checksum_sha256": ""
 }

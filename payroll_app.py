@@ -321,6 +321,9 @@ class Toast:
 #  DATA MANAGER
 # ═══════════════════════════════════════════════════════════════════════════════
 class DataManager:
+    # Path for the local cache of all Firebase data
+    _CACHE_FILE = CONFIG_DIR / "firebase_cache.json"
+
     def __init__(self, firebase_uid=None):
         CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -334,6 +337,7 @@ class DataManager:
             "days": [],   # list of (mon_iso, day_name) tuples pending sync
         }
         self._sync_running = False
+        self._cache = {}  # in-memory cache of all Firebase data
 
         if firebase_uid:
             try:
@@ -342,7 +346,11 @@ class DataManager:
             except Exception as e:
                 print(f"[DataManager] Firebase init failed: {e}")
 
-        # ── Load data: try Firebase first, fall back to local ──────────────
+        # ── Bulk download all data from Firebase on startup ────────────────
+        if self.fb:
+            self._bulk_download()
+
+        # ── Load data from cache ───────────────────────────────────────────
         self.positions = self._load_positions()
         self.employees = self._load_employees()
 
@@ -359,29 +367,46 @@ class DataManager:
         if self.fb:
             self._start_background_sync()
 
+    def _bulk_download(self):
+        """Download all Firebase data in one request and store in local cache."""
+        try:
+            data = self.fb.download_all()
+            if data and isinstance(data, dict):
+                self._cache = data
+                # Persist cache to disk for offline use
+                self._save_local(self._CACHE_FILE, data)
+                print(f"[DataManager] Bulk download OK — keys: {list(data.keys())}")
+                return
+        except Exception as e:
+            print(f"[DataManager] Bulk download failed: {e}")
+
+        # Fall back to loading cache from disk
+        try:
+            self._cache = self._load_json(self._CACHE_FILE, {})
+            if self._cache:
+                print("[DataManager] Loaded cached data from disk")
+        except Exception:
+            self._cache = {}
+
     def _load_employees(self):
-        """Load employees from Firebase, fall back to local file."""
-        if self.fb:
-            try:
-                data = self.fb.load_employees()
-                if data is not None:
-                    # Also save locally as cache
-                    self._save_local(EMP_FILE, data)
-                    return data
-            except Exception as e:
-                print(f"[DataManager] Firebase employee load failed: {e}")
+        """Load employees from local cache (populated by bulk download)."""
+        # Try in-memory cache first (from bulk download)
+        if self._cache.get("employees"):
+            data = self._cache["employees"]
+            if isinstance(data, dict):
+                data = list(data.values())
+            self._save_local(EMP_FILE, data)
+            return data
         return self._load_json(EMP_FILE, [])
 
     def _load_positions(self):
-        """Load positions from Firebase, fall back to local file."""
-        if self.fb:
-            try:
-                data = self.fb.load_positions()
-                if data is not None:
-                    self._save_local(POS_FILE, data)
-                    return data
-            except Exception as e:
-                print(f"[DataManager] Firebase position load failed: {e}")
+        """Load positions from local cache (populated by bulk download)."""
+        if self._cache.get("positions"):
+            data = self._cache["positions"]
+            if isinstance(data, dict):
+                data = list(data.values())
+            self._save_local(POS_FILE, data)
+            return data
         return self._load_json(POS_FILE, [])
 
     @staticmethod
@@ -405,40 +430,32 @@ class DataManager:
             pass
 
     def save_pos(self):
-        # Save to Firebase
-        if self.fb:
-            try:
-                if self.fb.save_positions(self.positions):
-                    self._dirty["positions"] = False
-                else:
-                    self._dirty["positions"] = True
-            except Exception as e:
-                print(f"[DataManager] Firebase save positions failed: {e}")
-                self._dirty["positions"] = True
-        # Always save locally too (as cache)
+        # Update in-memory cache
+        self._cache["positions"] = self.positions
+        self._save_local(self._CACHE_FILE, self._cache)
+        # Save locally as file cache
         try:
             with open(POS_FILE, "w") as f:
                 json.dump(self.positions, f, indent=2)
         except Exception as e:
             print(f"[ERROR] Failed to save positions: {e}")
+        # Queue background Firebase sync
+        if self.fb:
+            self._dirty["positions"] = True
 
     def save_emp(self):
-        # Save to Firebase
-        if self.fb:
-            try:
-                if self.fb.save_employees(self.employees):
-                    self._dirty["employees"] = False
-                else:
-                    self._dirty["employees"] = True
-            except Exception as e:
-                print(f"[DataManager] Firebase save employees failed: {e}")
-                self._dirty["employees"] = True
-        # Always save locally too (as cache)
+        # Update in-memory cache
+        self._cache["employees"] = self.employees
+        self._save_local(self._CACHE_FILE, self._cache)
+        # Save locally as file cache
         try:
             with open(EMP_FILE, "w") as f:
                 json.dump(self.employees, f, indent=2)
         except Exception as e:
             print(f"[ERROR] Failed to save employees: {e}")
+        # Queue background Firebase sync
+        if self.fb:
+            self._dirty["employees"] = True
 
     # ── Background sync (offline → online recovery) ─────────────────────
     def _mark_day_dirty(self, mon, day_name):
@@ -455,19 +472,23 @@ class DataManager:
                 len(self._dirty["days"]) > 0)
 
     def _start_background_sync(self):
-        """Start a background thread that syncs pending changes every 30 seconds."""
+        """Start a background thread that syncs pending changes every 15 seconds."""
         import threading
 
         def _sync_loop():
             import time
+            # Do an immediate first sync attempt after 5 seconds
+            time.sleep(5)
+            if self._has_pending():
+                self._try_sync()
             while True:
-                time.sleep(30)
+                time.sleep(15)
                 if self._has_pending():
                     self._try_sync()
 
         t = threading.Thread(target=_sync_loop, daemon=True)
         t.start()
-        print("[Sync] Background sync started (every 30s)")
+        print("[Sync] Background sync started (every 15s)")
 
     def _try_sync(self):
         """Attempt to sync all pending changes to Firebase."""
@@ -495,18 +516,27 @@ class DataManager:
                 except Exception:
                     pass
 
-            # Sync dirty days
+            # Sync dirty days (read from cache first, CSV fallback)
             synced_days = []
             for mon_iso, day_name in self._dirty["days"]:
                 try:
-                    mon = date.fromisoformat(mon_iso)
-                    folder = self.wk(mon)
-                    foh = [r for r in self.read_csv(folder / "foh_hours.csv")
-                           if r.get("day") == day_name]
-                    boh = [r for r in self.read_csv(folder / "boh_hours.csv")
-                           if r.get("day") == day_name]
-                    tips = [r for r in self.read_csv(folder / "weekly_tips.csv")
-                            if r.get("day") == day_name]
+                    week_key = mon_iso.replace("-", "_")
+                    weeks = self._cache.get("weeks", {})
+                    day_data = weeks.get(week_key, {}).get("days", {}).get(day_name)
+                    if day_data and isinstance(day_data, dict):
+                        foh = day_data.get("foh_hours", [])
+                        boh = day_data.get("boh_hours", [])
+                        tips = day_data.get("tips", [])
+                    else:
+                        # Fallback to CSV
+                        mon = date.fromisoformat(mon_iso)
+                        folder = self.wk(mon)
+                        foh = [r for r in self.read_csv(folder / "foh_hours.csv")
+                               if r.get("day") == day_name]
+                        boh = [r for r in self.read_csv(folder / "boh_hours.csv")
+                               if r.get("day") == day_name]
+                        tips = [r for r in self.read_csv(folder / "weekly_tips.csv")
+                                if r.get("day") == day_name]
                     if self.fb.save_week_day(mon_iso, day_name, foh, boh, tips):
                         synced_days.append((mon_iso, day_name))
                         print(f"[Sync]   Day {day_name} ({mon_iso}) synced")
@@ -661,28 +691,45 @@ class DataManager:
 
         self.write_csv(folder / "weekly_tips.csv", tips_f, tip_rows)
 
-        # ── Sync to Firebase ───────────────────────────────────────────────
+        # ── Update in-memory cache ────────────────────────────────────────
+        day_foh = [r for r in foh_rows if r.get("day") == day_name]
+        day_boh = [r for r in boh_rows if r.get("day") == day_name]
+        day_tips = [r for r in tip_rows if r.get("day") == day_name]
+
+        week_key = mon.isoformat().replace("-", "_")
+        if "weeks" not in self._cache:
+            self._cache["weeks"] = {}
+        if week_key not in self._cache["weeks"]:
+            self._cache["weeks"][week_key] = {"days": {}}
+        if "days" not in self._cache["weeks"][week_key]:
+            self._cache["weeks"][week_key]["days"] = {}
+        self._cache["weeks"][week_key]["days"][day_name] = {
+            "foh_hours": day_foh,
+            "boh_hours": day_boh,
+            "tips": day_tips,
+        }
+        # Persist cache to disk
+        self._save_local(self._CACHE_FILE, self._cache)
+
+        # ── Queue Firebase sync (non-blocking) ────────────────────────────
         if self.fb:
-            try:
-                # Get only this day's rows for Firebase
-                day_foh = [r for r in foh_rows if r.get("day") == day_name]
-                day_boh = [r for r in boh_rows if r.get("day") == day_name]
-                day_tips = [r for r in tip_rows if r.get("day") == day_name]
-                if not self.fb.save_week_day(mon.isoformat(), day_name, day_foh, day_boh, day_tips):
-                    self._mark_day_dirty(mon, day_name)
-            except Exception as e:
-                print(f"[DataManager] Firebase save_day failed: {e}")
-                self._mark_day_dirty(mon, day_name)
+            self._mark_day_dirty(mon, day_name)
 
     def load_day(self, mon, day_name):
-        # ── Try Firebase first ─────────────────────────────────────────────
-        if self.fb:
-            try:
-                foh, boh, tips = self.fb.load_week_day(mon.isoformat(), day_name)
-                if foh is not None:
-                    return foh, boh, tips
-            except Exception as e:
-                print(f"[DataManager] Firebase load_day failed: {e}")
+        # ── Try in-memory cache first (from bulk download) ─────────────────
+        mon_iso = mon.isoformat() if hasattr(mon, 'isoformat') else str(mon)
+        week_key = mon_iso.replace("-", "_")
+        weeks = self._cache.get("weeks", {})
+        if weeks and week_key in weeks:
+            day_data = weeks.get(week_key, {}).get("days", {}).get(day_name)
+            if day_data and isinstance(day_data, dict):
+                foh = day_data.get("foh_hours", [])
+                boh = day_data.get("boh_hours", [])
+                tips = day_data.get("tips", [])
+                if isinstance(foh, dict): foh = list(foh.values())
+                if isinstance(boh, dict): boh = list(boh.values())
+                if isinstance(tips, dict): tips = list(tips.values())
+                return foh, boh, tips
 
         # ── Fall back to local CSV ─────────────────────────────────────────
         folder = self.wk(mon)
