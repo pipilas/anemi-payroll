@@ -181,6 +181,7 @@ def _emp_dlg_v2(app, emp=None, open_tax_tab=False):
     def build_tax_fields():
         for w in tax_fields_container.winfo_children():
             w.destroy()
+        tax_widgets.clear()  # clear refs to destroyed widgets
 
         enabled = tax_enabled_var.get()
 
