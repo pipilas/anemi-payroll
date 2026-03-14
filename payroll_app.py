@@ -27,7 +27,10 @@ if platform.system() == "Windows":
 # ═══════════════════════════════════════════════════════════════════════════════
 #  CONSTANTS
 # ═══════════════════════════════════════════════════════════════════════════════
-_VERSION     = (Path(__file__).parent / "version.txt").read_text().strip() if (Path(__file__).parent / "version.txt").exists() else "0.0.0"
+try:
+    _VERSION = (Path(__file__).parent / "version.txt").read_text().strip()
+except Exception:
+    _VERSION = "0.0.0"
 APP_TITLE    = f"Stamhad Payroll v{_VERSION}"
 MIN_W, MIN_H = 1040, 740
 BASE_DIR     = Path(__file__).parent
@@ -701,10 +704,15 @@ class DataManager:
 
     # ── Payroll — PER-ROW wage calculation ────────────────────────────────
     def gen_payroll(self, mon):
-        folder = self.wk(mon)
-        foh = self.read_csv(folder / "foh_hours.csv")
-        boh = self.read_csv(folder / "boh_hours.csv")
-        tips = self.read_csv(folder / "weekly_tips.csv")
+        # Load all days from Firebase/local via load_day (not raw CSV)
+        foh = []
+        boh = []
+        tips = []
+        for day_name in DAYS:
+            day_foh, day_boh, day_tips = self.load_day(mon, day_name)
+            foh.extend(day_foh)
+            boh.extend(day_boh)
+            tips.extend(day_tips)
 
         boh_ids = set()
         for r in boh:
@@ -820,10 +828,15 @@ class DataManager:
 
     def emp_weekly_profile(self, mon, emp_id):
         """Gather full weekly activity for a single employee."""
-        folder = self.wk(mon)
-        foh = self.read_csv(folder / "foh_hours.csv")
-        boh = self.read_csv(folder / "boh_hours.csv")
-        tips = self.read_csv(folder / "weekly_tips.csv")
+        # Load all days from Firebase/local via load_day (not raw CSV)
+        foh = []
+        boh = []
+        tips = []
+        for day_name in DAYS:
+            day_foh, day_boh, day_tips = self.load_day(mon, day_name)
+            foh.extend(day_foh)
+            boh.extend(day_boh)
+            tips.extend(day_tips)
 
         # Hours rows for this employee
         hours_rows = [r for r in foh + boh if r.get("emp_id") == emp_id]
