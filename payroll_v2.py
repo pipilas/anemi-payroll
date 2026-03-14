@@ -4,7 +4,7 @@ Extends the main App class. Does NOT modify payroll_app.py.
 """
 
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
 import csv, json
 from datetime import date, timedelta
 from pathlib import Path
@@ -1253,7 +1253,19 @@ def _print_weekly_details_pdf(app, emp, pr, taxes, profile, mon):
         small_note))
 
     doc.build(elements)
-    app.toast.show(f"Weekly details PDF saved \u2192 payslips/{filename}")
+
+    dest = filedialog.asksaveasfilename(
+        title="Save Weekly Details PDF",
+        defaultextension=".pdf",
+        filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")],
+        initialfile=filename,
+    )
+    if dest:
+        import shutil
+        shutil.copy2(str(filepath), dest)
+        app.toast.show(f"Saved \u2192 {Path(dest).name}")
+    else:
+        app.toast.show(f"PDF created \u2192 payslips/{filename}")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1427,7 +1439,19 @@ def _export_payslip_pdf(app, emp, pr, taxes, mon):
     elements.append(Paragraph("* Tax calculations are estimates. Consult a CPA.", disc_style))
 
     doc.build(elements)
-    app.toast.show(f"Payslip PDF saved \u2192 payslips/{filename}")
+
+    dest = filedialog.asksaveasfilename(
+        title="Save Payslip PDF",
+        defaultextension=".pdf",
+        filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")],
+        initialfile=filename,
+    )
+    if dest:
+        import shutil
+        shutil.copy2(str(filepath), dest)
+        app.toast.show(f"Saved \u2192 {Path(dest).name}")
+    else:
+        app.toast.show(f"PDF created \u2192 payslips/{filename}")
 
 
 def _export_payslip_csv(app, emp, pr, taxes, mon):
@@ -1491,7 +1515,18 @@ def _export_payslip_csv(app, emp, pr, taxes, mon):
         w.writeheader()
         w.writerows(rows)
 
-    app.toast.show(f"Payslip CSV saved \u2192 payslips/{filename}")
+    dest = filedialog.asksaveasfilename(
+        title="Save Payslip CSV",
+        defaultextension=".csv",
+        filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
+        initialfile=filename,
+    )
+    if dest:
+        import shutil
+        shutil.copy2(str(filepath), dest)
+        app.toast.show(f"Saved \u2192 {Path(dest).name}")
+    else:
+        app.toast.show(f"CSV created \u2192 payslips/{filename}")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1710,7 +1745,19 @@ def _export_all_pdf(app, mon):
     elements.append(st)
 
     doc.build(elements)
-    app.toast.show(f"Full payroll PDF saved \u2192 {filename}")
+
+    dest = filedialog.asksaveasfilename(
+        title="Save Full Payroll PDF",
+        defaultextension=".pdf",
+        filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")],
+        initialfile=filename,
+    )
+    if dest:
+        import shutil
+        shutil.copy2(str(filepath), dest)
+        app.toast.show(f"Saved \u2192 {Path(dest).name}")
+    else:
+        app.toast.show(f"PDF created \u2192 {filename}")
 
 
 def _fmt_r(val):

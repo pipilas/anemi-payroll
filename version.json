@@ -1,10 +1,10 @@
 {
-  "latest_version": "1.1.0",
+  "latest_version": "1.1.1",
   "minimum_version": "1.0.0",
   "release_date": "2026-03-14",
-  "download_url_windows": "https://github.com/pipilas/anemi-payroll/releases/download/v1.1.0/StamhadPayroll.exe",
-  "download_url_mac": "https://github.com/pipilas/anemi-payroll/releases/download/v1.1.0/StamhadPayroll-1.1.0-mac.dmg",
-  "release_notes": "- Added % reduction per employee (default 10%)\n- Fixed payroll not loading from Firebase\n- Fixed tips preserved across tab switches\n- Fixed tax toggle save bug\n- Per-day hours editing in employee profile\n- Version shown in title bar\n- Windows DPI fix",
+  "download_url_windows": "https://github.com/pipilas/anemi-payroll/releases/download/v1.1.1/StamhadPayroll.exe",
+  "download_url_mac": "https://github.com/pipilas/anemi-payroll/releases/download/v1.1.1/StamhadPayroll-1.1.1-mac.dmg",
+  "release_notes": "- Export files now let you choose where to save\n- Added % reduction per employee\n- Fixed payroll Firebase loading",
   "mandatory": false,
   "checksum_sha256": ""
 }

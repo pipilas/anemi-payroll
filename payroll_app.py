@@ -8,7 +8,7 @@ Grand Total renamed to Total Labor.
 
 import sys
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
 import json, csv, os, random, string, copy, platform, traceback
 from datetime import datetime, timedelta, date
 from pathlib import Path
@@ -2352,10 +2352,20 @@ class App(tk.Tk):
         Btn(btn_frame, text="Cancel", command=win.destroy, style="cancel").pack(side="left", padx=8)
 
     def _export_wk_csv(self, path, title):
-        if path.exists():
-            self.toast.show(f"CSV available: {path.name}")
-        else:
+        if not path.exists():
             self.toast.show("No data to export.", bg=WARN_BG, fg=WARN_FG)
+            return
+        dest = filedialog.asksaveasfilename(
+            title=f"Export {title}",
+            defaultextension=".csv",
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
+            initialfile=path.name,
+        )
+        if not dest:
+            return
+        import shutil
+        shutil.copy2(str(path), dest)
+        self.toast.show(f"Exported \u2192 {Path(dest).name}")
 
     def _chg_wk(self, d):
         self.sel_date += timedelta(days=d)
@@ -2489,7 +2499,17 @@ class App(tk.Tk):
 
     def _do_export(self, mon, rows):
         p = self.dm.export_payroll(mon, rows)
-        self.toast.show(f"Payroll exported \u2192 {p.name}")
+        dest = filedialog.asksaveasfilename(
+            title="Export Payroll CSV",
+            defaultextension=".csv",
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
+            initialfile=p.name,
+        )
+        if not dest:
+            return
+        import shutil
+        shutil.copy2(str(p), dest)
+        self.toast.show(f"Payroll exported \u2192 {Path(dest).name}")
 
     # ══════════════════════════════════════════════════════════════════════
     #  EMPLOYEE WEEKLY ACTIVITY PROFILE
