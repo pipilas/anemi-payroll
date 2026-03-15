@@ -1382,11 +1382,39 @@ class App(tk.Tk):
             v = tk.BooleanVar(value=pos["name"] in existing_names)
             tk.Checkbutton(f, text=pos["name"], variable=v, bg=BG_CARD, fg=FG,
                            selectcolor=BG_INPUT, activebackground=BG_CARD,
-                           font=(FONT, 12)).pack(side="left")
+                           font=(FONT, 12),
+                           command=lambda: _update_main()).pack(side="left")
             DeptPill(f, pos.get("department", "FOH")).pack(side="left", padx=8)
             tk.Label(f, text=f'({fmt(pos.get("hourly_wage", 0))}/hr)',
                      bg=BG_CARD, fg=FG_SEC, font=(FONT, 11)).pack(side="left", padx=4)
             pvars.append((v, pos["name"]))
+
+        # ── Main position selector ──────────────────────────────────────
+        mp_frame = tk.Frame(win, bg=BG_CARD)
+        mp_frame.pack(fill="x", padx=28, pady=(8, 4))
+        tk.Label(mp_frame, text="Main Position", bg=BG_CARD, fg=ACCENT,
+                 font=(FONT, 12, "bold")).pack(anchor="w")
+        main_pos_cb = ttk.Combobox(mp_frame, state="readonly", width=25,
+                                   font=(FONT, 11))
+        main_pos_cb.pack(anchor="w", pady=(4, 0))
+        cur_main = emp.get("main_position", "") if emp else ""
+
+        def _update_main():
+            checked = [pn for v, pn in pvars if v.get()]
+            main_pos_cb["values"] = checked
+            cur = main_pos_cb.get()
+            if not checked:
+                main_pos_cb.set("")
+            elif len(checked) == 1:
+                main_pos_cb.set(checked[0])
+            elif cur not in checked:
+                main_pos_cb.set(checked[0])
+
+        _update_main()
+        if cur_main and cur_main in [pn for v, pn in pvars if v.get()]:
+            main_pos_cb.set(cur_main)
+        elif main_pos_cb["values"]:
+            main_pos_cb.set(main_pos_cb["values"][0] if main_pos_cb["values"] else "")
 
         btn_frame = tk.Frame(win, bg=BG_CARD)
         btn_frame.pack(pady=18)
@@ -1400,12 +1428,17 @@ class App(tk.Tk):
             if not assigned:
                 messagebox.showwarning("Missing", "Assign at least one position.", parent=win)
                 return
+            mp = main_pos_cb.get().strip()
+            if not mp and assigned:
+                mp = assigned[0]["position_name"]
             if emp:
                 emp["name"] = name
                 emp["positions"] = assigned
+                emp["main_position"] = mp
             else:
                 self.dm.employees.append({"id": gen_id(), "name": name,
-                                          "positions": assigned, "sort_order": 9999})
+                                          "positions": assigned, "main_position": mp,
+                                          "sort_order": 9999})
             self.dm.save_emp()
             win.destroy()
             self._clr()
@@ -1663,7 +1696,8 @@ class App(tk.Tk):
             has_rows = any(h["emp_id"] == eid for h in self._hours_data)
             if not has_rows:
                 pos_names = [a["position_name"] for a in emp.get("positions", [])]
-                default_pos = pos_names[0] if pos_names else ""
+                main_pos = emp.get("main_position", "")
+                default_pos = main_pos if main_pos and main_pos in pos_names else (pos_names[0] if pos_names else "")
                 self._hours_data.append({
                     "emp_id": eid, "emp_name": emp["name"],
                     "position_name": default_pos, "shift": "Dinner", "hours": 0,
@@ -1753,7 +1787,8 @@ class App(tk.Tk):
 
                 if not emp_rows:
                     pos_names = [a["position_name"] for a in emp.get("positions", [])]
-                    default_pos = pos_names[0] if pos_names else ""
+                    main_pos = emp.get("main_position", "")
+                    default_pos = main_pos if main_pos and main_pos in pos_names else (pos_names[0] if pos_names else "")
                     emp_rows = [{"emp_id": eid, "emp_name": emp["name"],
                                  "position_name": default_pos, "shift": "Dinner", "hours": 0}]
                     self._hours_data.extend(emp_rows)
@@ -1806,9 +1841,11 @@ class App(tk.Tk):
 
     def _add_new_hours_row(self, parent, emp):
         pos_names = [a["position_name"] for a in emp.get("positions", [])]
+        main_pos = emp.get("main_position", "")
+        default_pos = main_pos if main_pos and main_pos in pos_names else (pos_names[0] if pos_names else "")
         new_data = {
             "emp_id": emp["id"], "emp_name": emp["name"],
-            "position_name": pos_names[0] if pos_names else "",
+            "position_name": default_pos,
             "shift": "Dinner", "hours": 0,
         }
         self._hours_data.append(new_data)

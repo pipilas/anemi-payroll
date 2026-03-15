@@ -133,11 +133,42 @@ def _emp_dlg_v2(app, emp=None, open_tax_tab=False):
         v = tk.BooleanVar(value=pos["name"] in existing_names)
         tk.Checkbutton(f, text=pos["name"], variable=v, bg=BG_CARD, fg=FG,
                        selectcolor=BG_INPUT, activebackground=BG_CARD,
-                       font=(FONT, 12)).pack(side="left")
+                       font=(FONT, 12),
+                       command=lambda: _update_main_pos_dropdown()).pack(side="left")
         DeptPill(f, pos.get("department", "FOH")).pack(side="left", padx=8)
         tk.Label(f, text=f'({fmt(pos.get("hourly_wage", 0))}/hr)',
                  bg=BG_CARD, fg=FG_SEC, font=(FONT, 11)).pack(side="left", padx=4)
         pvars.append((v, pos["name"]))
+
+    # ── Main (default) position selector ────────────────────────────────
+    main_pos_frame = tk.Frame(gen_scroll, bg=BG_CARD)
+    main_pos_frame.pack(fill="x", padx=28, pady=(12, 6))
+    tk.Label(main_pos_frame, text="Main Position",
+             bg=BG_CARD, fg=ACCENT, font=(FONT, 12, "bold")).pack(anchor="w")
+    tk.Label(main_pos_frame, text="Default position used when adding hours",
+             bg=BG_CARD, fg=FG_SEC, font=(FONT, 10)).pack(anchor="w")
+    main_pos_cb = ttk.Combobox(main_pos_frame, state="readonly", width=25,
+                               font=(FONT, 11))
+    main_pos_cb.pack(anchor="w", pady=(4, 0))
+
+    current_main = emp.get("main_position", "") if emp else ""
+
+    def _update_main_pos_dropdown():
+        checked = [pn for v, pn in pvars if v.get()]
+        main_pos_cb["values"] = checked
+        cur = main_pos_cb.get()
+        if not checked:
+            main_pos_cb.set("")
+        elif len(checked) == 1:
+            main_pos_cb.set(checked[0])
+        elif cur not in checked:
+            main_pos_cb.set(checked[0])
+
+    _update_main_pos_dropdown()
+    if current_main and current_main in [pn for v, pn in pvars if v.get()]:
+        main_pos_cb.set(current_main)
+    elif main_pos_cb["values"]:
+        main_pos_cb.set(main_pos_cb["values"][0] if main_pos_cb["values"] else "")
 
     # ══════════════════════════════════════════════════════════════════════
     #  TAB 2: Tax Info
@@ -497,15 +528,21 @@ def _emp_dlg_v2(app, emp=None, open_tax_tab=False):
 
         ri = _collect_reduction()
 
+        main_pos = main_pos_cb.get().strip()
+        if not main_pos and assigned:
+            main_pos = assigned[0]["position_name"]
+
         if emp:
             emp["name"] = name
             emp["positions"] = assigned
+            emp["main_position"] = main_pos
             emp["tax_info"] = ti
             emp["reduction"] = ri
         else:
             app.dm.employees.append({
                 "id": gen_id(), "name": name,
-                "positions": assigned, "sort_order": 9999,
+                "positions": assigned, "main_position": main_pos,
+                "sort_order": 9999,
                 "tax_info": ti, "reduction": ri,
             })
         app.dm.save_emp()
