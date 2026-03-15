@@ -1,10 +1,10 @@
 {
-  "latest_version": "1.1.3",
+  "latest_version": "1.1.4",
   "minimum_version": "1.0.0",
   "release_date": "2026-03-15",
-  "download_url_windows": "https://github.com/pipilas/anemi-payroll/releases/download/v1.1.3/StamhadPayroll.exe",
-  "download_url_mac": "https://github.com/pipilas/anemi-payroll/releases/download/v1.1.3/StamhadPayroll-1.1.3-mac.dmg",
-  "release_notes": "- Offline-first: bulk download on login, background sync every 15s\n- Main (default) position per employee\n- Default shift is Dinner for all employees",
+  "download_url_windows": "https://github.com/pipilas/anemi-payroll/releases/download/v1.1.4/StamhadPayroll.exe",
+  "download_url_mac": "https://github.com/pipilas/anemi-payroll/releases/download/v1.1.4/StamhadPayroll-1.1.4-mac.dmg",
+  "release_notes": "- Fixed data loss: immediate Firebase save + persistent dirty queue\n- Smart merge on login preserves unsynced local data\n- Main (default) position per employee",
   "mandatory": false,
   "checksum_sha256": ""
 }

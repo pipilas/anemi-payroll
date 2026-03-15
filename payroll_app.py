@@ -368,24 +368,56 @@ class DataManager:
             self._start_background_sync()
 
     def _bulk_download(self):
-        """Download all Firebase data in one request and store in local cache."""
+        """Download all Firebase data in one request and store in local cache.
+        Merges with any locally pending (dirty) data to prevent data loss."""
+        # Load any pending dirty queue from previous session
+        self._load_dirty()
+
+        # Load existing local cache (may have unsynced data)
+        local_cache = self._load_json(self._CACHE_FILE, {})
+
         try:
             data = self.fb.download_all()
             if data and isinstance(data, dict):
                 self._cache = data
-                # Persist cache to disk for offline use
-                self._save_local(self._CACHE_FILE, data)
-                print(f"[DataManager] Bulk download OK — keys: {list(data.keys())}")
+
+                # Merge: if we have pending dirty days, keep local version
+                if self._has_pending() and local_cache:
+                    print("[DataManager] Merging local pending data with download...")
+                    for mon_iso, day_name in self._dirty.get("days", []):
+                        week_key = mon_iso.replace("-", "_")
+                        local_weeks = local_cache.get("weeks", {})
+                        local_day = local_weeks.get(week_key, {}).get("days", {}).get(day_name)
+                        if local_day:
+                            if "weeks" not in self._cache:
+                                self._cache["weeks"] = {}
+                            if week_key not in self._cache["weeks"]:
+                                self._cache["weeks"][week_key] = {"days": {}}
+                            if "days" not in self._cache["weeks"][week_key]:
+                                self._cache["weeks"][week_key]["days"] = {}
+                            self._cache["weeks"][week_key]["days"][day_name] = local_day
+                            print(f"[DataManager]   Kept local data for {day_name} ({mon_iso})")
+
+                    # Keep local employees/positions if dirty
+                    if self._dirty.get("employees") and local_cache.get("employees"):
+                        self._cache["employees"] = local_cache["employees"]
+                        print("[DataManager]   Kept local employees")
+                    if self._dirty.get("positions") and local_cache.get("positions"):
+                        self._cache["positions"] = local_cache["positions"]
+                        print("[DataManager]   Kept local positions")
+
+                # Persist merged cache to disk
+                self._save_local(self._CACHE_FILE, self._cache)
+                print(f"[DataManager] Bulk download OK — keys: {list(self._cache.keys())}")
                 return
         except Exception as e:
             print(f"[DataManager] Bulk download failed: {e}")
 
         # Fall back to loading cache from disk
-        try:
-            self._cache = self._load_json(self._CACHE_FILE, {})
-            if self._cache:
-                print("[DataManager] Loaded cached data from disk")
-        except Exception:
+        if local_cache:
+            self._cache = local_cache
+            print("[DataManager] Loaded cached data from disk")
+        else:
             self._cache = {}
 
     def _load_employees(self):
@@ -439,9 +471,17 @@ class DataManager:
                 json.dump(self.positions, f, indent=2)
         except Exception as e:
             print(f"[ERROR] Failed to save positions: {e}")
-        # Queue background Firebase sync
+        # Try immediate Firebase sync, queue on failure
         if self.fb:
-            self._dirty["positions"] = True
+            try:
+                if self.fb.save_positions(self.positions):
+                    self._dirty["positions"] = False
+                else:
+                    self._dirty["positions"] = True
+            except Exception as e:
+                print(f"[DataManager] Firebase save positions failed: {e}")
+                self._dirty["positions"] = True
+            self._persist_dirty()
 
     def save_emp(self):
         # Update in-memory cache
@@ -453,9 +493,47 @@ class DataManager:
                 json.dump(self.employees, f, indent=2)
         except Exception as e:
             print(f"[ERROR] Failed to save employees: {e}")
-        # Queue background Firebase sync
+        # Try immediate Firebase sync, queue on failure
         if self.fb:
-            self._dirty["employees"] = True
+            try:
+                if self.fb.save_employees(self.employees):
+                    self._dirty["employees"] = False
+                else:
+                    self._dirty["employees"] = True
+            except Exception as e:
+                print(f"[DataManager] Firebase save employees failed: {e}")
+                self._dirty["employees"] = True
+            self._persist_dirty()
+
+    # ── Dirty queue persistence ─────────────────────────────────────────
+    _DIRTY_FILE = CONFIG_DIR / "pending_sync.json"
+
+    def _persist_dirty(self):
+        """Save dirty queue to disk so it survives app restart."""
+        try:
+            serializable = {
+                "employees": self._dirty["employees"],
+                "positions": self._dirty["positions"],
+                "days": self._dirty["days"],
+            }
+            self._save_local(self._DIRTY_FILE, serializable)
+        except Exception:
+            pass
+
+    def _load_dirty(self):
+        """Load dirty queue from disk (from previous session)."""
+        try:
+            data = self._load_json(self._DIRTY_FILE, {})
+            if data:
+                self._dirty["employees"] = data.get("employees", False)
+                self._dirty["positions"] = data.get("positions", False)
+                self._dirty["days"] = data.get("days", [])
+                if self._has_pending():
+                    print(f"[Sync] Loaded pending sync from previous session: "
+                          f"emp={self._dirty['employees']}, pos={self._dirty['positions']}, "
+                          f"days={len(self._dirty['days'])}")
+        except Exception:
+            pass
 
     # ── Background sync (offline → online recovery) ─────────────────────
     def _mark_day_dirty(self, mon, day_name):
@@ -464,6 +542,7 @@ class DataManager:
         if key not in self._dirty["days"]:
             self._dirty["days"].append(key)
             print(f"[Sync] Marked dirty: {key}")
+        self._persist_dirty()
 
     def _has_pending(self):
         """Check if there's anything that needs syncing."""
@@ -546,6 +625,7 @@ class DataManager:
             for d in synced_days:
                 self._dirty["days"].remove(d)
 
+            self._persist_dirty()
             if not self._has_pending():
                 print("[Sync] All changes synced!")
 
@@ -711,9 +791,14 @@ class DataManager:
         # Persist cache to disk
         self._save_local(self._CACHE_FILE, self._cache)
 
-        # ── Queue Firebase sync (non-blocking) ────────────────────────────
+        # ── Try immediate Firebase sync, queue on failure ─────────────────
         if self.fb:
-            self._mark_day_dirty(mon, day_name)
+            try:
+                if not self.fb.save_week_day(mon.isoformat(), day_name, day_foh, day_boh, day_tips):
+                    self._mark_day_dirty(mon, day_name)
+            except Exception as e:
+                print(f"[DataManager] Firebase save_day failed: {e}")
+                self._mark_day_dirty(mon, day_name)
 
     def load_day(self, mon, day_name):
         # ── Try in-memory cache first (from bulk download) ─────────────────
