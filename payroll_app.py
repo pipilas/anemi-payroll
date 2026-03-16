@@ -1128,14 +1128,17 @@ class App(tk.Tk):
         nav.pack(side="top", fill="x")
         nav.pack_propagate(False)
 
-        # ── Logo in nav bar ──────────────────────────────────────────────
-        self._nav_logo = _load_icon("logo_horizontal.png", master=self)
-        if self._nav_logo:
-            tk.Label(nav, image=self._nav_logo, bg=BG_NAV).pack(
-                side="left", padx=(12, 20), pady=4)
-        else:
-            tk.Label(nav, text="  Stamhad Payroll", bg=BG_NAV, fg="#7EB8FF",
-                     font=(FONT, 16, "bold")).pack(side="left", padx=(10, 24))
+        # ── Icon + text in nav bar ───────────────────────────────────────
+        self._nav_icon = _load_icon("icon_dark_64.png", master=self)
+        if self._nav_icon:
+            try:
+                self._nav_icon_sm = self._nav_icon.subsample(2, 2)
+            except Exception:
+                self._nav_icon_sm = self._nav_icon
+            tk.Label(nav, image=self._nav_icon_sm, bg=BG_NAV).pack(
+                side="left", padx=(12, 0), pady=4)
+        tk.Label(nav, text="Stamhad Payroll", bg=BG_NAV, fg="#7EB8FF",
+                 font=(FONT, 15, "bold")).pack(side="left", padx=(6, 24))
 
         self.nav_btns = {}
         for lbl in ["Today", "Week View", "Employees", "Positions", "Payroll Report"]:
