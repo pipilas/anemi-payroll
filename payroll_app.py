@@ -98,6 +98,7 @@ ROW_B     = "#EEF1F4"
 
 # ─── Icon / Logo paths ──────────────────────────────────────────────────
 ICONS_DIR = BASE_DIR / "icons" / "png"
+ICO_FILE  = BASE_DIR / "icons" / "stamhad_payroll_icon_dark.ico"
 
 def _load_icon(name, master=None):
     """Load a PNG from the icons/png folder. Returns PhotoImage or None."""
@@ -108,6 +109,23 @@ def _load_icon(name, master=None):
     except Exception as e:
         print(f"[Icon] Failed to load {name}: {e}")
     return None
+
+def _set_window_icon(win):
+    """Set window icon: .ico on Windows, .png iconphoto elsewhere."""
+    if platform.system() == "Windows" and ICO_FILE.exists():
+        try:
+            win.iconbitmap(str(ICO_FILE))
+            return
+        except Exception:
+            pass
+    # Fallback: use PNG iconphoto (macOS / Linux)
+    try:
+        icon = _load_icon("icon_dark_128.png", master=win)
+        if icon:
+            win.iconphoto(True, icon)
+            win._icon_ref = icon  # prevent garbage collection
+    except Exception:
+        pass
 
 DEPT_OPTIONS = ["Front of House (FOH)", "Back of House (BOH)"]
 DEPT_MAP = {"Front of House (FOH)": "FOH", "Back of House (BOH)": "BOH",
@@ -1069,12 +1087,7 @@ class App(tk.Tk):
         self.geometry("1160x820")
 
         # ── Window icon ──────────────────────────────────────────────────
-        self._app_icon = _load_icon("icon_dark_128.png", master=self)
-        if self._app_icon:
-            try:
-                self.iconphoto(True, self._app_icon)
-            except Exception:
-                pass
+        _set_window_icon(self)
 
         self.dm = DataManager(firebase_uid=getattr(self, '_logged_in_uid', None))
         self.toast = Toast(self)

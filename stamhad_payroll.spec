@@ -28,7 +28,7 @@ source_files = [
 # Data files to bundle (config, tax tables, version info)
 data_files = [
     ('config', 'config'),
-    ('icons/png', 'icons/png'),
+    ('icons', 'icons'),
     ('tax_tables_2025.json', '.'),
     ('version.json', '.'),
     ('version.txt', '.'),
@@ -95,7 +95,7 @@ if sys.platform == 'win32':
         target_arch=None,
         codesign_identity=None,
         entitlements_file=None,
-        icon=None,                  # Add 'icon.ico' path here if you have one
+        icon='icons/stamhad_payroll_icon_dark.ico',
     )
 
 # ── macOS APP ────────────────────────────────────────────────────────────────

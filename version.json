@@ -1,10 +1,10 @@
 {
-  "latest_version": "1.1.51",
+  "latest_version": "1.1.52",
   "minimum_version": "1.0.0",
   "release_date": "2026-03-16",
-  "download_url_windows": "https://github.com/pipilas/anemi-payroll/releases/download/v1.1.51/StamhadPayroll.exe",
-  "download_url_mac": "https://github.com/pipilas/anemi-payroll/releases/download/v1.1.51/StamhadPayroll-1.1.51-mac.dmg",
-  "release_notes": "- App branding: icon + text in nav bar\n- Window icon on taskbar\n- Logo on login, splash, and PDF exports",
+  "download_url_windows": "https://github.com/pipilas/anemi-payroll/releases/download/v1.1.52/StamhadPayroll.exe",
+  "download_url_mac": "https://github.com/pipilas/anemi-payroll/releases/download/v1.1.52/StamhadPayroll-1.1.52-mac.dmg",
+  "release_notes": "- .ico file for Windows taskbar/EXE icon\n- Cleaned up login and splash screens\n- Icon on all windows",
   "mandatory": false,
   "checksum_sha256": ""
 }

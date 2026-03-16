@@ -1,0 +1,18 @@
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+
+  <!-- Badge -->
+  <rect x="10" y="10" width="180" height="180" rx="40" fill="#1A1A2E"/>
+
+  <!-- Fork tines -->
+  <rect x="72" y="38" width="8" height="44" rx="4" fill="#4F46E5"/>
+  <rect x="96" y="38" width="8" height="44" rx="4" fill="#4F46E5"/>
+  <rect x="120" y="38" width="8" height="44" rx="4" fill="#4F46E5"/>
+
+  <!-- Neck curves -->
+  <path d="M76 82 Q100 104 100 104" stroke="#4F46E5" stroke-width="8" fill="none" stroke-linecap="round"/>
+  <path d="M124 82 Q100 104 100 104" stroke="#4F46E5" stroke-width="8" fill="none" stroke-linecap="round"/>
+
+  <!-- Handle -->
+  <rect x="96" y="100" width="8" height="62" rx="4" fill="#4F46E5"/>
+
+</svg>
