@@ -9,7 +9,21 @@ No self-signup. Admin creates all accounts.
 import tkinter as tk
 from tkinter import messagebox
 import threading
+from pathlib import Path
 import auth_manager as auth
+
+# ── Icon paths ────────────────────────────────────────────────────────────
+_ICONS_DIR = Path(__file__).parent / "icons" / "png"
+
+def _load_icon(name, master=None):
+    """Load a PNG from the icons/png folder. Returns PhotoImage or None."""
+    try:
+        p = _ICONS_DIR / name
+        if p.exists():
+            return tk.PhotoImage(master=master, file=str(p))
+    except Exception:
+        pass
+    return None
 
 # ── Colours ────────────────────────────────────────────────────────────────
 BG_PAGE  = "#F1F5F9"
@@ -42,10 +56,19 @@ class LoginWindow(tk.Tk):
         super().__init__()
         self.title(APP_NAME)
         self.configure(bg=BG_PAGE)
-        self.geometry("440x520")
+        self.geometry("440x560")
         self.resizable(False, False)
         self._on_success = on_success
         self._prefill_email = prefill_email
+
+        # Window icon
+        self._win_icon = _load_icon("icon_dark_128.png", master=self)
+        if self._win_icon:
+            try:
+                self.iconphoto(True, self._win_icon)
+            except Exception:
+                pass
+
         self._build_ui()
 
         # Pre-fill email if we have one
@@ -57,14 +80,18 @@ class LoginWindow(tk.Tk):
     def _build_ui(self):
         card = tk.Frame(self, bg=BG_CARD, highlightbackground=BORDER,
                          highlightthickness=1)
-        card.place(relx=0.5, rely=0.5, anchor="center", width=380, height=440)
+        card.place(relx=0.5, rely=0.5, anchor="center", width=380, height=480)
 
-        # ── Branding header ──────────────────────────────────────────────
-        tk.Label(card, text=APP_NAME, bg=BG_CARD, fg=BG_NAV,
-                 font=(FONT, 26, "bold")).pack(pady=(30, 0))
-        tk.Label(card, text="by Stamhad Software", bg=BG_CARD, fg=FG_SEC,
-                 font=(FONT, 10)).pack(pady=(2, 8))
-        tk.Frame(card, bg=ACCENT, height=3, width=60).pack(pady=(0, 24))
+        # ── Branding header with logo ────────────────────────────────────
+        self._login_logo = _load_icon("logo_main_120.png", master=self)
+        if self._login_logo:
+            tk.Label(card, image=self._login_logo, bg=BG_CARD).pack(pady=(20, 4))
+        else:
+            tk.Label(card, text=APP_NAME, bg=BG_CARD, fg=BG_NAV,
+                     font=(FONT, 26, "bold")).pack(pady=(30, 0))
+            tk.Label(card, text="by Stamhad Software", bg=BG_CARD, fg=FG_SEC,
+                     font=(FONT, 10)).pack(pady=(2, 8))
+        tk.Frame(card, bg=ACCENT, height=3, width=60).pack(pady=(0, 20))
 
         # Email
         tk.Label(card, text="Email", bg=BG_CARD, fg=FG,
@@ -183,19 +210,32 @@ class AutoLoginSplash(tk.Tk):
         super().__init__()
         self.title(APP_NAME)
         self.configure(bg=BG_PAGE)
-        self.geometry("340x180")
+        self.geometry("340x260")
         self.resizable(False, False)
         self._session = session
         self._on_success = on_success
         self._on_fail = on_fail
 
-        tk.Label(self, text=APP_NAME, bg=BG_PAGE, fg=BG_NAV,
-                 font=(FONT, 22, "bold")).pack(pady=(30, 4))
-        tk.Label(self, text="by Stamhad Software", bg=BG_PAGE, fg=FG_SEC,
-                 font=(FONT, 9)).pack(pady=(0, 4))
+        # Window icon
+        self._win_icon = _load_icon("icon_dark_128.png", master=self)
+        if self._win_icon:
+            try:
+                self.iconphoto(True, self._win_icon)
+            except Exception:
+                pass
+
+        # Splash logo
+        self._splash_logo = _load_icon("logo_main_120.png", master=self)
+        if self._splash_logo:
+            tk.Label(self, image=self._splash_logo, bg=BG_PAGE).pack(pady=(20, 4))
+        else:
+            tk.Label(self, text=APP_NAME, bg=BG_PAGE, fg=BG_NAV,
+                     font=(FONT, 22, "bold")).pack(pady=(30, 4))
+            tk.Label(self, text="by Stamhad Software", bg=BG_PAGE, fg=FG_SEC,
+                     font=(FONT, 9)).pack(pady=(0, 4))
         self._status = tk.Label(self, text="Signing in...", bg=BG_PAGE,
                                  fg=FG_SEC, font=(FONT, 11))
-        self._status.pack(pady=(0, 10))
+        self._status.pack(pady=(4, 10))
 
         # Start auth in background
         self.after(100, self._try_auto_login)

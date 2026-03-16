@@ -96,6 +96,19 @@ SHIFT_CLR = {"Morning": ("#FCD34D", "#78350F"),
 ROW_A     = "#FFFFFF"
 ROW_B     = "#EEF1F4"
 
+# ─── Icon / Logo paths ──────────────────────────────────────────────────
+ICONS_DIR = BASE_DIR / "icons" / "png"
+
+def _load_icon(name, master=None):
+    """Load a PNG from the icons/png folder. Returns PhotoImage or None."""
+    try:
+        p = ICONS_DIR / name
+        if p.exists():
+            return tk.PhotoImage(master=master, file=str(p))
+    except Exception as e:
+        print(f"[Icon] Failed to load {name}: {e}")
+    return None
+
 DEPT_OPTIONS = ["Front of House (FOH)", "Back of House (BOH)"]
 DEPT_MAP = {"Front of House (FOH)": "FOH", "Back of House (BOH)": "BOH",
             "FOH": "FOH", "BOH": "BOH"}
@@ -1055,6 +1068,14 @@ class App(tk.Tk):
         self.minsize(MIN_W, MIN_H)
         self.geometry("1160x820")
 
+        # ── Window icon ──────────────────────────────────────────────────
+        self._app_icon = _load_icon("icon_dark_128.png", master=self)
+        if self._app_icon:
+            try:
+                self.iconphoto(True, self._app_icon)
+            except Exception:
+                pass
+
         self.dm = DataManager(firebase_uid=getattr(self, '_logged_in_uid', None))
         self.toast = Toast(self)
         self.sel_date = date.today()
@@ -1107,8 +1128,14 @@ class App(tk.Tk):
         nav.pack(side="top", fill="x")
         nav.pack_propagate(False)
 
-        tk.Label(nav, text="  Stamhad Payroll", bg=BG_NAV, fg="#7EB8FF",
-                 font=(FONT, 16, "bold")).pack(side="left", padx=(10, 24))
+        # ── Logo in nav bar ──────────────────────────────────────────────
+        self._nav_logo = _load_icon("logo_horizontal.png", master=self)
+        if self._nav_logo:
+            tk.Label(nav, image=self._nav_logo, bg=BG_NAV).pack(
+                side="left", padx=(12, 20), pady=4)
+        else:
+            tk.Label(nav, text="  Stamhad Payroll", bg=BG_NAV, fg="#7EB8FF",
+                     font=(FONT, 16, "bold")).pack(side="left", padx=(10, 24))
 
         self.nav_btns = {}
         for lbl in ["Today", "Week View", "Employees", "Positions", "Payroll Report"]:

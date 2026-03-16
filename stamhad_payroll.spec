@@ -28,6 +28,7 @@ source_files = [
 # Data files to bundle (config, tax tables, version info)
 data_files = [
     ('config', 'config'),
+    ('icons/png', 'icons/png'),
     ('tax_tables_2025.json', '.'),
     ('version.json', '.'),
     ('version.txt', '.'),

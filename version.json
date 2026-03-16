@@ -1,10 +1,10 @@
 {
-  "latest_version": "1.1.4",
+  "latest_version": "1.1.5",
   "minimum_version": "1.0.0",
-  "release_date": "2026-03-15",
-  "download_url_windows": "https://github.com/pipilas/anemi-payroll/releases/download/v1.1.4/StamhadPayroll.exe",
-  "download_url_mac": "https://github.com/pipilas/anemi-payroll/releases/download/v1.1.4/StamhadPayroll-1.1.4-mac.dmg",
-  "release_notes": "- Fixed data loss: immediate Firebase save + persistent dirty queue\n- Smart merge on login preserves unsynced local data\n- Main (default) position per employee",
+  "release_date": "2026-03-16",
+  "download_url_windows": "https://github.com/pipilas/anemi-payroll/releases/download/v1.1.5/StamhadPayroll.exe",
+  "download_url_mac": "https://github.com/pipilas/anemi-payroll/releases/download/v1.1.5/StamhadPayroll-1.1.5-mac.dmg",
+  "release_notes": "- App branding: logos and icons throughout the app\n- Window icon on taskbar\n- Logo on login, splash, nav bar, and PDF exports",
   "mandatory": false,
   "checksum_sha256": ""
 }

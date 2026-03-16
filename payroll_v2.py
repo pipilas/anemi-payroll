@@ -13,7 +13,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
 from reportlab.lib import colors
 from reportlab.platypus import (SimpleDocTemplate, Table, TableStyle,
-                                Paragraph, Spacer, PageBreak)
+                                Paragraph, Spacer, PageBreak, Image as RLImage)
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
 # Import main app objects
@@ -29,6 +29,16 @@ from payroll_app import (
 import tax_calculator as taxcalc
 
 BASE_DIR = Path(__file__).parent
+_PDF_LOGO = BASE_DIR / "icons" / "png" / "icon_light_64.png"
+
+def _pdf_logo_element():
+    """Return a ReportLab Image of the light icon for PDFs, or None."""
+    try:
+        if _PDF_LOGO.exists():
+            return RLImage(str(_PDF_LOGO), width=32, height=32)
+    except Exception:
+        pass
+    return None
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  CONSTANTS
@@ -1050,7 +1060,11 @@ def _print_weekly_details_pdf(app, emp, pr, taxes, profile, mon):
                                 fontSize=7, textColor=colors.HexColor("#9CA3AF"),
                                 alignment=1)
 
-    # ── Header ─────────────────────────────────────────────────────────────
+    # ── Header with logo ──────────────────────────────────────────────────
+    logo_el = _pdf_logo_element()
+    if logo_el:
+        elements.append(logo_el)
+        elements.append(Spacer(1, 4))
     _rest_name = getattr(app, '_logged_in_restaurant', 'My Restaurant') or 'My Restaurant'
     elements.append(Paragraph(_rest_name.upper(), title_style))
     elements.append(Paragraph("EMPLOYEE WEEKLY DETAILS", subtitle_style))
@@ -1337,7 +1351,11 @@ def _export_payslip_pdf(app, emp, pr, taxes, mon):
                                    fontSize=11, spaceAfter=4, spaceBefore=12,
                                    textColor=colors.HexColor("#374151"))
 
-    # ── Restaurant Header ─────────────────────────────────────────────────
+    # ── Restaurant Header with logo ──────────────────────────────────────
+    logo_el = _pdf_logo_element()
+    if logo_el:
+        elements.append(logo_el)
+        elements.append(Spacer(1, 4))
     _rest_name = getattr(app, '_logged_in_restaurant', 'My Restaurant') or 'My Restaurant'
     elements.append(Paragraph(_rest_name.upper(), title_style))
     elements.append(Paragraph("PAY STATEMENT", subtitle_style))
@@ -1599,8 +1617,12 @@ def _export_all_pdf(app, mon):
                                 fontSize=12, alignment=1, spaceBefore=6,
                                 textColor=colors.HexColor("#1C1C1E"))
 
-    # ── Cover Page ────────────────────────────────────────────────────────
-    elements.append(Spacer(1, 100))
+    # ── Cover Page with logo ─────────────────────────────────────────────
+    elements.append(Spacer(1, 60))
+    logo_el = _pdf_logo_element()
+    if logo_el:
+        elements.append(logo_el)
+        elements.append(Spacer(1, 12))
     _rest_name = getattr(app, '_logged_in_restaurant', 'My Restaurant') or 'My Restaurant'
     elements.append(Paragraph(_rest_name.upper(), cover_title))
     elements.append(Paragraph("WEEKLY PAYROLL REPORT", cover_sub))
