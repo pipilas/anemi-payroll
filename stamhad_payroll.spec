@@ -8,6 +8,10 @@ import sys
 import os
 
 block_cipher = None
+try:
+    SPEC_DIR = os.path.dirname(os.path.abspath(SPEC))
+except NameError:
+    SPEC_DIR = os.path.abspath('.')
 
 # All Python source files that make up the app
 source_files = [
@@ -27,11 +31,11 @@ source_files = [
 
 # Data files to bundle (config, tax tables, version info)
 data_files = [
-    ('config', 'config'),
-    ('icons', 'icons'),
-    ('tax_tables_2025.json', '.'),
-    ('version.json', '.'),
-    ('version.txt', '.'),
+    (os.path.join(SPEC_DIR, 'config'), 'config'),
+    (os.path.join(SPEC_DIR, 'icons'), 'icons'),
+    (os.path.join(SPEC_DIR, 'tax_tables_2025.json'), '.'),
+    (os.path.join(SPEC_DIR, 'version.json'), '.'),
+    (os.path.join(SPEC_DIR, 'version.txt'), '.'),
 ]
 
 a = Analysis(
@@ -95,7 +99,7 @@ if sys.platform == 'win32':
         target_arch=None,
         codesign_identity=None,
         entitlements_file=None,
-        icon='icons/stamhad_payroll_icon_dark.ico',
+        icon=os.path.join(SPEC_DIR, 'icons', 'stamhad_payroll_icon_dark.ico'),
     )
 
 # ── macOS APP ────────────────────────────────────────────────────────────────
