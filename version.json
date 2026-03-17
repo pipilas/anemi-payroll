@@ -1,10 +1,10 @@
 {
-  "latest_version": "1.1.52",
+  "latest_version": "1.2.0",
   "minimum_version": "1.0.0",
-  "release_date": "2026-03-16",
-  "download_url_windows": "https://github.com/pipilas/anemi-payroll/releases/download/v1.1.52/StamhadPayroll.exe",
-  "download_url_mac": "https://github.com/pipilas/anemi-payroll/releases/download/v1.1.52/StamhadPayroll-1.1.52-mac.dmg",
-  "release_notes": "- .ico file for Windows taskbar/EXE icon\n- Cleaned up login and splash screens\n- Icon on all windows",
+  "release_date": "2026-03-17",
+  "download_url_windows": "https://github.com/pipilas/anemi-payroll/releases/download/v1.2.0/StamhadPayroll.exe",
+  "download_url_mac": "https://github.com/pipilas/anemi-payroll/releases/download/v1.2.0/StamhadPayroll-1.2.0-mac.dmg",
+  "release_notes": "- Toast POS CSV import: auto-fill daily hours from TimeEntries export\n- Smart employee name matching (Last, First → First Last)\n- Auto shift detection (before 11:30AM = Morning, after = Dinner)\n- Morning position auto-select (e.g. Server → Server (morning))\n- Supports double-shift employees (morning + dinner)",
   "mandatory": false,
   "checksum_sha256": ""
 }

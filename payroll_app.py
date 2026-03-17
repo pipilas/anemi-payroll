@@ -1669,6 +1669,10 @@ class App(tk.Tk):
             b.bind("<Button-1>", lambda e, t2=t: self._day_tab(t2))
             self._day_tab_btns[t] = b
 
+        # Import from Toast POS button (right side of tab bar)
+        Btn(tab_bar, text="\U0001F4E5 Import from Toast",
+            style="ghost", command=self._import_toast_csv).pack(side="right", padx=8)
+
         footer = tk.Frame(self.main, bg=BG_CARD, highlightbackground=BORDER,
                           highlightthickness=1)
         footer.pack(side="bottom", fill="x")
@@ -1847,6 +1851,153 @@ class App(tk.Tk):
                 self._checked_emp_ids.discard(eid)
                 self._hours_data = [h for h in self._hours_data if h["emp_id"] != eid]
         self._update_footer()
+
+    # ── TOAST POS CSV IMPORT ────────────────────────────────────────────
+    def _import_toast_csv(self):
+        """Import a Toast POS TimeEntries CSV to auto-fill employees, shifts & hours."""
+        path = filedialog.askopenfilename(
+            title="Select Toast CSV File",
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
+        )
+        if not path:
+            return
+
+        try:
+            with open(path, newline="", encoding="utf-8-sig") as f:
+                reader = csv.DictReader(f)
+                rows = list(reader)
+        except Exception as ex:
+            messagebox.showerror("Import Error", f"Could not read CSV:\n{ex}")
+            return
+
+        if not rows:
+            messagebox.showinfo("Import", "CSV file is empty.")
+            return
+
+        # ── Build lookup of app employees by normalised name ────────────
+        all_emps = self.dm.employees
+        emp_by_norm = {}   # "first last" -> emp dict
+        for emp in all_emps:
+            norm = emp["name"].strip().lower()
+            emp_by_norm[norm] = emp
+            # Also index by last,first reversed
+            parts = norm.split()
+            if len(parts) >= 2:
+                emp_by_norm[" ".join(parts[1:]) + " " + parts[0]] = emp
+
+        def _normalize_csv_name(raw):
+            """Convert 'Last, First' to 'first last' normalised."""
+            raw = raw.strip().strip('"')
+            if "," in raw:
+                last, first = raw.split(",", 1)
+                return f"{first.strip()} {last.strip()}".lower()
+            return raw.lower()
+
+        def _match_employee(csv_name):
+            """Try exact match, then fuzzy substring match."""
+            norm = _normalize_csv_name(csv_name)
+            # Exact match
+            if norm in emp_by_norm:
+                return emp_by_norm[norm]
+            # Try matching ignoring extra spaces / middle names
+            norm_parts = norm.split()
+            for key, emp in emp_by_norm.items():
+                key_parts = key.split()
+                # Match if first and last name match (handles middle names)
+                if len(norm_parts) >= 2 and len(key_parts) >= 2:
+                    if norm_parts[0] == key_parts[0] and norm_parts[-1] == key_parts[-1]:
+                        return emp
+            return None
+
+        def _parse_shift(time_in_str):
+            """Before 11:30 AM = Morning, otherwise Dinner."""
+            try:
+                t = datetime.strptime(time_in_str.strip(), "%I:%M %p")
+                cutoff = t.replace(hour=11, minute=30)
+                return "Morning" if t <= cutoff else "Dinner"
+            except Exception:
+                return "Dinner"
+
+        # ── Process CSV rows ────────────────────────────────────────────
+        imported = 0
+        skipped_names = []
+        new_checked = set(self._checked_emp_ids)
+        new_hours = list(self._hours_data)
+
+        for row in rows:
+            csv_name = row.get("Employee", "").strip()
+            if not csv_name:
+                continue
+            emp = _match_employee(csv_name)
+            if not emp:
+                skipped_names.append(csv_name)
+                continue
+
+            eid = emp["id"]
+            job = row.get("Job", "").strip()
+            time_in = row.get("Time In", "").strip()
+            hours = safe_float(row.get("Payable Hours", 0))
+            shift = _parse_shift(time_in)
+
+            # Try to match job from CSV to employee positions
+            pos_names = [a["position_name"] for a in emp.get("positions", [])]
+            matched_pos = ""
+            if job:
+                for pn in pos_names:
+                    if pn.lower() == job.lower():
+                        matched_pos = pn
+                        break
+            # Morning shift: prefer "(morning)" variant of the position
+            # e.g. if shift=Morning and employee has "Server (morning)", use that
+            if shift == "Morning":
+                base = (matched_pos or job).lower().split("(")[0].strip()
+                for pn in pos_names:
+                    if "(morning)" in pn.lower() and pn.lower().startswith(base):
+                        matched_pos = pn
+                        break
+            if not matched_pos:
+                main_pos = emp.get("main_position", "")
+                matched_pos = main_pos if main_pos and main_pos in pos_names else (pos_names[0] if pos_names else job)
+
+            # Check if this employee already has a row for this shift+position
+            dup = False
+            for h in new_hours:
+                if h["emp_id"] == eid and h["shift"] == shift and h["position_name"] == matched_pos:
+                    h["hours"] = hours  # update hours
+                    dup = True
+                    break
+            if not dup:
+                new_hours.append({
+                    "emp_id": eid, "emp_name": emp["name"],
+                    "position_name": matched_pos, "shift": shift,
+                    "hours": hours,
+                })
+
+            new_checked.add(eid)
+            imported += 1
+
+        self._checked_emp_ids = new_checked
+        self._hours_data = new_hours
+
+        # ── Summary message ─────────────────────────────────────────────
+        msg = f"Imported {imported} entries from Toast CSV."
+        if skipped_names:
+            unique_skipped = sorted(set(skipped_names))
+            msg += f"\n\n{len(unique_skipped)} employee(s) not matched:\n"
+            msg += "\n".join(f"  • {n}" for n in unique_skipped[:20])
+            if len(unique_skipped) > 20:
+                msg += f"\n  … and {len(unique_skipped) - 20} more"
+        messagebox.showinfo("Toast Import", msg)
+
+        # Refresh the current tab
+        self._day_tab(self._current_tab_name() or "\U0001F465 Employees")
+
+    def _current_tab_name(self):
+        """Return which tab is currently active."""
+        for name, btn in self._day_tab_btns.items():
+            if btn.cget("bg") == ACCENT:
+                return name
+        return None
 
     # ── TAB 2: Hours — position/shift/hours management ─────────────────
     def _build_tab_hours(self):
