@@ -1,5 +1,10 @@
 # Stamhad Payroll — Changelog
 
+## v1.2.21 — March 17, 2026
+- **New**: Week View day cards show separate status indicators for hours (⏱) and tips (💰)
+  - ⏱✓ = all hours filled, ⏱⚠ = some hours missing
+  - 💰✓ = tips distributed, 💰⚠ = tips not yet distributed
+
 ## v1.2.2 — March 17, 2026
 - **Fix**: Week View detail tables (FOH Hours, BOH Hours, Tips) now load from Firebase cache instead of CSV files only — data shows consistently with the daily summary cards
 - **Toast Import**: Employees still clocked in (no Time Out, 0 hours) are skipped and listed in the import summary

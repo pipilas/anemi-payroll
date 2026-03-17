@@ -2465,19 +2465,35 @@ class App(tk.Tk):
                 empty_lbl.pack(fill="x")
                 empty_lbl.bind("<Button-1>", lambda e, d=dd: self._edit_day(d))
             else:
-                # Check: only show ✓ if ALL employees have hours > 0
+                # Status indicators: hours ✓/⚠ and tips ✓/⚠
                 all_hours_filled = all(
                     safe_float(r.get("hours", 0)) > 0 for r in allr)
-                if dd < date.today() and all_hours_filled:
-                    dot = tk.Label(cell, text="\u2713", bg=BG_CARD, fg=SUCCESS,
-                                   font=(FONT, 10, "bold"), cursor="hand2")
-                    dot.pack(anchor="ne", padx=4)
-                    dot.bind("<Button-1>", lambda e, d=dd: self._edit_day(d))
-                elif dd < date.today() and not all_hours_filled:
-                    dot = tk.Label(cell, text="\u26A0", bg=BG_CARD, fg=WARN_BORD,
-                                   font=(FONT, 10, "bold"), cursor="hand2")
-                    dot.pack(anchor="ne", padx=4)
-                    dot.bind("<Button-1>", lambda e, d=dd: self._edit_day(d))
+                has_tips_distributed = len(tips) > 0 and any(
+                    safe_float(r.get("total_tip", 0)) > 0 for r in tips)
+
+                status_row = tk.Frame(cell, bg=BG_CARD, cursor="hand2")
+                status_row.pack(anchor="ne", padx=4)
+                status_row.bind("<Button-1>", lambda e, d=dd: self._edit_day(d))
+
+                # Hours indicator
+                if all_hours_filled:
+                    h_txt, h_fg = "\u23F1\u2713", SUCCESS
+                else:
+                    h_txt, h_fg = "\u23F1\u26A0", WARN_BORD
+                h_lbl = tk.Label(status_row, text=h_txt, bg=BG_CARD, fg=h_fg,
+                                 font=(FONT, 9, "bold"), cursor="hand2")
+                h_lbl.pack(side="left", padx=(0, 4))
+                h_lbl.bind("<Button-1>", lambda e, d=dd: self._edit_day(d))
+
+                # Tips indicator
+                if has_tips_distributed:
+                    t_txt, t_fg = "\U0001F4B0\u2713", SUCCESS
+                else:
+                    t_txt, t_fg = "\U0001F4B0\u26A0", WARN_BORD
+                t_lbl = tk.Label(status_row, text=t_txt, bg=BG_CARD, fg=t_fg,
+                                 font=(FONT, 9, "bold"), cursor="hand2")
+                t_lbl.pack(side="left")
+                t_lbl.bind("<Button-1>", lambda e, d=dd: self._edit_day(d))
 
                 def _make_cell_lbl(parent, txt, fg_c=FG, fnt_size=9, bold=False, dd_ref=dd):
                     weight = "bold" if bold else "normal"
