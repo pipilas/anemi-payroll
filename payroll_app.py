@@ -2746,6 +2746,13 @@ class App(tk.Tk):
     # ══════════════════════════════════════════════════════════════════════
     #  PAYROLL REPORT — Total Labor (renamed from Grand Total), wage notes
     # ══════════════════════════════════════════════════════════════════════
+    def _chg_wk_payroll(self, d):
+        self.sel_date += timedelta(days=d)
+        self.cur_mon = monday_of(self.sel_date)
+        self._upd_date()
+        self._clr()
+        self.pg_payroll()
+
     def pg_payroll(self):
         scroll = ScrollFrame(self.main, bg=BG_PAGE)
         scroll.pack(fill="both", expand=True)
@@ -2754,6 +2761,13 @@ class App(tk.Tk):
         tk.Label(scroll, text=f"Payroll Report \u2014 Week of {mon.strftime('%b %d, %Y')}",
                  bg=BG_PAGE, fg=FG, font=(FONT, 18, "bold")).pack(
                      anchor="w", padx=24, pady=(18, 10))
+
+        wnav = tk.Frame(scroll, bg=BG_PAGE)
+        wnav.pack(fill="x", padx=24, pady=4)
+        Btn(wnav, text="\u2190 Prev Week", style="ghost",
+            command=lambda: self._chg_wk_payroll(-7)).pack(side="left", padx=4)
+        Btn(wnav, text="Next Week \u2192", style="ghost",
+            command=lambda: self._chg_wk_payroll(7)).pack(side="left", padx=4)
 
         payroll = self.dm.gen_payroll(mon)
         if not payroll:

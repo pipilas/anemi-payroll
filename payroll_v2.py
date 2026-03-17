@@ -609,6 +609,22 @@ def _pg_payroll_v2_inner(app):
     Btn(top, text="Switch to Classic Payroll", style="cancel",
         command=lambda: _switch_classic(app)).pack(side="right", padx=4)
 
+    # Prev / Next Week navigation
+    wnav = tk.Frame(app.main, bg=BG_PAGE)
+    wnav.pack(fill="x", padx=16, pady=4)
+
+    def _chg_wk_v2(d):
+        app.sel_date += timedelta(days=d)
+        app.cur_mon = monday_of(app.sel_date)
+        app._upd_date()
+        app._clr()
+        pg_payroll_v2(app)
+
+    Btn(wnav, text="\u2190 Prev Week", style="ghost",
+        command=lambda: _chg_wk_v2(-7)).pack(side="left", padx=4)
+    Btn(wnav, text="Next Week \u2192", style="ghost",
+        command=lambda: _chg_wk_v2(7)).pack(side="left", padx=4)
+
     # Main split: sidebar + detail
     body = tk.Frame(app.main, bg=BG_PAGE)
     body.pack(fill="both", expand=True)
