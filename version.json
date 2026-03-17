@@ -1,10 +1,10 @@
 {
-  "latest_version": "1.2.1",
+  "latest_version": "1.2.2",
   "minimum_version": "1.0.0",
   "release_date": "2026-03-17",
-  "download_url_windows": "https://github.com/pipilas/anemi-payroll/releases/download/v1.2.1/StamhadPayroll.exe",
-  "download_url_mac": "https://github.com/pipilas/anemi-payroll/releases/download/v1.2.1/StamhadPayroll-1.2.1-mac.dmg",
-  "release_notes": "- Prev/Next Week navigation on Payroll Report and Detailed Payroll pages\n- Toast POS CSV import: auto-fill daily hours from TimeEntries export\n- Morning position auto-select (e.g. Server → Server (morning))",
+  "download_url_windows": "https://github.com/pipilas/anemi-payroll/releases/download/v1.2.2/StamhadPayroll.exe",
+  "download_url_mac": "https://github.com/pipilas/anemi-payroll/releases/download/v1.2.2/StamhadPayroll-1.2.2-mac.dmg",
+  "release_notes": "- Fix: Week View detail tables (FOH Hours, BOH Hours, Tips) now load from cache instead of CSV only\n- Toast import skips employees still clocked in (no Time Out)\n- Morning shift auto-selects Server (morning) position",
   "mandatory": false,
   "checksum_sha256": ""
 }

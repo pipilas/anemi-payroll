@@ -854,6 +854,22 @@ class DataManager:
         tips = [r for r in self.read_csv(folder / "weekly_tips.csv") if r.get("day") == day_name]
         return foh, boh, tips
 
+    # ── Load full week data for detail tables (cache-first) ──────────────
+    def load_week_table(self, mon, table_type):
+        """Load all 7 days of a week and return rows for FOH/BOH/Tips tables.
+        table_type: 'foh', 'boh', or 'tips'
+        Returns list of row dicts matching the CSV format."""
+        all_rows = []
+        for day_name in DAYS:
+            foh, boh, tips = self.load_day(mon, day_name)
+            if table_type == "foh":
+                all_rows.extend(foh)
+            elif table_type == "boh":
+                all_rows.extend(boh)
+            elif table_type == "tips":
+                all_rows.extend(tips)
+        return all_rows
+
     # ── Compute daily labor cost for week view ────────────────────────────
     def day_labor_cost(self, mon, day_name):
         """Sum of hours * per-position wage for a single day (no tips)."""
@@ -1936,8 +1952,14 @@ class App(tk.Tk):
             eid = emp["id"]
             job = row.get("Job", "").strip()
             time_in = row.get("Time In", "").strip()
+            time_out = row.get("Time Out", "").strip()
             hours = safe_float(row.get("Payable Hours", 0))
             shift = _parse_shift(time_in)
+
+            # Skip employees who haven't clocked out yet (no Time Out, 0 hours)
+            if not time_out and hours == 0:
+                skipped_names.append(f"{csv_name} (still clocked in)")
+                continue
 
             # Try to match job from CSV to employee positions
             pos_names = [a["position_name"] for a in emp.get("positions", [])]
@@ -2492,10 +2514,10 @@ class App(tk.Tk):
         # Collapsible detail tables
         folder = self.dm.wk(mon)
 
-        for title, csv_file, fields in [
-            ("FOH Hours", "foh_hours.csv", ["Employee", "Position", "Shift", "Date", "Hours"]),
-            ("BOH Hours", "boh_hours.csv", ["Employee", "Position", "Shift", "Date", "Hours"]),
-            ("Tips", "weekly_tips.csv", ["Date", "Shift", "Employee", "Floor Tips", "Bar Tips", "Total"]),
+        for title, csv_file, table_type, fields in [
+            ("FOH Hours", "foh_hours.csv", "foh", ["Employee", "Position", "Shift", "Date", "Hours"]),
+            ("BOH Hours", "boh_hours.csv", "boh", ["Employee", "Position", "Shift", "Date", "Hours"]),
+            ("Tips", "weekly_tips.csv", "tips", ["Date", "Shift", "Employee", "Floor Tips", "Bar Tips", "Total"]),
         ]:
             section_frame = tk.Frame(scroll, bg=BG_PAGE)
             section_frame.pack(fill="x", padx=24, pady=(8, 0))
@@ -2536,7 +2558,10 @@ class App(tk.Tk):
                 command=lambda p=csv_path, t=title: self._export_wk_csv(p, t)).pack(
                 side="right", padx=8, pady=4)
 
-            rows = self.dm.read_csv(csv_path)
+            # Load from cache first, fall back to CSV
+            rows = self.dm.load_week_table(mon, table_type)
+            if not rows:
+                rows = self.dm.read_csv(csv_path)
             if not rows:
                 tk.Label(content_frame, text="No data this week yet",
                          bg=BG_PAGE, fg=FG_SEC, font=(FONT, 12)).pack(
