@@ -1,9 +1,9 @@
 {
-  "latest_version": "1.2.21",
+  "latest_version": "1.2.22",
   "minimum_version": "1.0.0",
-  "release_date": "2026-03-17",
-  "download_url_windows": "https://github.com/pipilas/anemi-payroll/releases/download/v1.2.21/StamhadPayroll.exe",
-  "download_url_mac": "https://github.com/pipilas/anemi-payroll/releases/download/v1.2.21/StamhadPayroll-1.2.21-mac.dmg",
+  "release_date": "2026-03-19",
+  "download_url_windows": "https://github.com/pipilas/anemi-payroll/releases/download/v1.2.22/StamhadPayroll.exe",
+  "download_url_mac": "https://github.com/pipilas/anemi-payroll/releases/download/v1.2.22/StamhadPayroll-1.2.22-mac.dmg",
   "release_notes": "- Fixed payroll not loading from Firebase\n- Fixed tips not saving when changing positions\n- Fixed tax toggle save bug\n- Relaunch after update fix\n- Version shown in title bar\n- Windows DPI fix",
   "mandatory": false,
   "checksum_sha256": ""
