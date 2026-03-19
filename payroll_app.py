@@ -753,7 +753,12 @@ class DataManager:
 
         foh_rows = [r for r in self.read_csv(folder / "foh_hours.csv") if r.get("day") != day_name]
         boh_rows = [r for r in self.read_csv(folder / "boh_hours.csv") if r.get("day") != day_name]
-        tip_rows = [r for r in self.read_csv(folder / "weekly_tips.csv") if r.get("day") != day_name]
+        # Only remove old tip rows if we have new tips to write;
+        # otherwise preserve existing tips for this day
+        if tips:
+            tip_rows = [r for r in self.read_csv(folder / "weekly_tips.csv") if r.get("day") != day_name]
+        else:
+            tip_rows = list(self.read_csv(folder / "weekly_tips.csv"))
 
         for b in blocks:
             pos = self.pos_by_name(b["position_name"])
@@ -814,6 +819,14 @@ class DataManager:
             self._cache["weeks"][week_key] = {"days": {}}
         if "days" not in self._cache["weeks"][week_key]:
             self._cache["weeks"][week_key]["days"] = {}
+
+        # If no new tips distributed, preserve existing cached tips
+        if not tips:
+            existing = self._cache["weeks"].get(week_key, {}).get("days", {}).get(day_name, {})
+            existing_tips = existing.get("tips", [])
+            if existing_tips:
+                day_tips = existing_tips
+
         self._cache["weeks"][week_key]["days"][day_name] = {
             "foh_hours": day_foh,
             "boh_hours": day_boh,
@@ -1934,11 +1947,10 @@ class App(tk.Tk):
             except Exception:
                 return "Dinner"
 
-        # ── Process CSV rows ────────────────────────────────────────────
+        # ── First pass: collect valid import entries per employee ──────
+        import_entries = {}  # eid -> list of {emp, job, shift, hours, matched_pos, csv_name}
         imported = 0
         skipped_names = []
-        new_checked = set(self._checked_emp_ids)
-        new_hours = list(self._hours_data)
 
         for row in rows:
             csv_name = row.get("Employee", "").strip()
@@ -1956,9 +1968,14 @@ class App(tk.Tk):
             hours = safe_float(row.get("Payable Hours", 0))
             shift = _parse_shift(time_in)
 
-            # Skip employees who haven't clocked out yet (no Time Out, 0 hours)
-            if not time_out and hours == 0:
-                skipped_names.append(f"{csv_name} (still clocked in)")
+            # Skip zero-hour entries: still clocked in, or accidental same-time clock in/out
+            if hours == 0:
+                if not time_out:
+                    skipped_names.append(f"{csv_name} (still clocked in)")
+                elif time_in == time_out:
+                    skipped_names.append(f"{csv_name} (clock in/out same time — skipped)")
+                else:
+                    skipped_names.append(f"{csv_name} (0 hours)")
                 continue
 
             # Try to match job from CSV to employee positions
@@ -1970,7 +1987,6 @@ class App(tk.Tk):
                         matched_pos = pn
                         break
             # Morning shift: prefer "(morning)" variant of the position
-            # e.g. if shift=Morning and employee has "Server (morning)", use that
             if shift == "Morning":
                 base = (matched_pos or job).lower().split("(")[0].strip()
                 for pn in pos_names:
@@ -1981,22 +1997,29 @@ class App(tk.Tk):
                 main_pos = emp.get("main_position", "")
                 matched_pos = main_pos if main_pos and main_pos in pos_names else (pos_names[0] if pos_names else job)
 
-            # Check if this employee already has a row for this shift+position
-            dup = False
-            for h in new_hours:
-                if h["emp_id"] == eid and h["shift"] == shift and h["position_name"] == matched_pos:
-                    h["hours"] = hours  # update hours
-                    dup = True
-                    break
-            if not dup:
+            import_entries.setdefault(eid, []).append({
+                "emp": emp, "shift": shift, "hours": hours,
+                "matched_pos": matched_pos, "csv_name": csv_name,
+            })
+
+        # ── Second pass: remove old rows for imported employees, add new ones ──
+        imported_eids = set(import_entries.keys())
+        # Keep rows for employees NOT in the import; drop old rows for imported ones
+        new_hours = [h for h in self._hours_data if h["emp_id"] not in imported_eids]
+        new_checked = set(self._checked_emp_ids)
+
+        for eid, entries in import_entries.items():
+            for entry in entries:
+                emp = entry["emp"]
                 new_hours.append({
                     "emp_id": eid, "emp_name": emp["name"],
-                    "position_name": matched_pos, "shift": shift,
-                    "hours": hours,
+                    "position_name": entry["matched_pos"],
+                    "shift": entry["shift"],
+                    "hours": entry["hours"],
                 })
+                imported += 1
 
             new_checked.add(eid)
-            imported += 1
 
         self._checked_emp_ids = new_checked
         self._hours_data = new_hours

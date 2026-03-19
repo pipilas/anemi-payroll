@@ -1,5 +1,10 @@
 # Stamhad Payroll — Changelog
 
+## v1.2.22 — March 19, 2026
+- **Fix**: Saving a day without redistributing tips no longer wipes existing tips from CSV, cache, and Firebase
+- **Fix**: Toast import skips all 0-hour entries (accidental same-time clock in/out like Adalis 11:29 PM)
+- **Fix**: Toast import replaces old rows for imported employees instead of creating duplicates
+
 ## v1.2.21 — March 17, 2026
 - **New**: Week View day cards show separate status indicators for hours (⏱) and tips (💰)
   - ⏱✓ = all hours filled, ⏱⚠ = some hours missing
