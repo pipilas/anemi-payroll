@@ -1,5 +1,12 @@
 # Stamhad Payroll — Changelog
 
+## v1.2.23 — March 20, 2026
+- **New**: Editable tip points per employee on the Hours tab — "Pts" field next to each shift row
+- Points auto-populate from position defaults but can be overridden per day
+- Changing position dropdown auto-updates points to match the new position
+- Points flow into tip distribution calculation on the Tips tab
+- Points persist through save/load (CSV + Firebase) — setting 0 points stays at 0
+
 ## v1.2.22 — March 19, 2026
 - **Fix**: Saving a day without redistributing tips no longer wipes existing tips from CSV, cache, and Firebase
 - **Fix**: Toast import skips all 0-hour entries (accidental same-time clock in/out like Adalis 11:29 PM)

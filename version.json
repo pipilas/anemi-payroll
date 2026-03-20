@@ -1,10 +1,10 @@
 {
-  "latest_version": "1.2.22",
+  "latest_version": "1.2.23",
   "minimum_version": "1.0.0",
-  "release_date": "2026-03-19",
-  "download_url_windows": "https://github.com/pipilas/anemi-payroll/releases/download/v1.2.22/StamhadPayroll.exe",
-  "download_url_mac": "https://github.com/pipilas/anemi-payroll/releases/download/v1.2.22/StamhadPayroll-1.2.22-mac.dmg",
-  "release_notes": "- Fix: saving a day without redistributing tips no longer wipes existing tips\n- Fix: Toast import skips all 0-hour entries (same-time clock in/out)\n- Fix: Toast import replaces old rows instead of duplicating",
+  "release_date": "2026-03-20",
+  "download_url_windows": "https://github.com/pipilas/anemi-payroll/releases/download/v1.2.23/StamhadPayroll.exe",
+  "download_url_mac": "https://github.com/pipilas/anemi-payroll/releases/download/v1.2.23/StamhadPayroll-1.2.23-mac.dmg",
+  "release_notes": "- New: Editable tip points per employee on Hours tab\n- Points auto-populate from position defaults, can be overridden\n- Position change auto-updates points\n- Fix: Setting points to 0 now persists correctly (no fallback to defaults)",
   "mandatory": false,
   "checksum_sha256": ""
 }

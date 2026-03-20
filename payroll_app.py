@@ -746,8 +746,8 @@ class DataManager:
     def save_day(self, mon, day_name, blocks, tips):
         folder = self.ensure_wk(mon)
 
-        foh_f = ["day", "emp_id", "employee_name", "position", "shift", "hours"]
-        boh_f = ["day", "emp_id", "employee_name", "position", "shift", "hours"]
+        foh_f = ["day", "emp_id", "employee_name", "position", "shift", "hours", "points"]
+        boh_f = ["day", "emp_id", "employee_name", "position", "shift", "hours", "points"]
         tips_f = ["day", "shift", "emp_id", "employee_name", "position",
                   "points", "floor_tip", "bar_tip", "total_tip"]
 
@@ -769,6 +769,7 @@ class DataManager:
                 "position": b["position_name"],
                 "shift": b.get("shift", "Dinner"),
                 "hours": b.get("hours", 0),
+                "points": b.get("points", 0),
             }
             if dept == "FOH":
                 foh_rows.append(row)
@@ -1626,9 +1627,12 @@ class App(tk.Tk):
         foh_saved, boh_saved, tip_saved = self.dm.load_day(self.cur_mon, day_name)
         saved_blocks = []
         for r in foh_saved + boh_saved:
+            raw_pts = r.get("points")
+            pts = safe_float(raw_pts) if raw_pts not in (None, "") else None
             saved_blocks.append({
                 "emp_id": r["emp_id"], "position_name": r["position"],
                 "shift": r.get("shift", "Dinner"), "hours": safe_float(r.get("hours", 0)),
+                "points": pts,
             })
 
         self._saved_by_emp = {}
@@ -1640,12 +1644,17 @@ class App(tk.Tk):
         self._hours_data = []
         for b in saved_blocks:
             emp = self.dm.emp_by_id(b["emp_id"])
+            pts = b.get("points")
+            if pts is None:
+                pos = self.dm.pos_by_name(b["position_name"])
+                pts = safe_float(pos.get("tip_points", 0)) if pos else 0
             self._hours_data.append({
                 "emp_id": b["emp_id"],
                 "emp_name": emp["name"] if emp else "",
                 "position_name": b["position_name"],
                 "shift": b.get("shift", "Dinner"),
                 "hours": b.get("hours", 0),
+                "points": pts,
             })
 
         self._saved_tip_totals = {}
@@ -1747,6 +1756,7 @@ class App(tk.Tk):
                     "position_name": hw["pos_var"].get(),
                     "shift": hw["shift_var"].get() or "Dinner",
                     "hours": safe_float(hw["hours_entry"].get()),
+                    "points": safe_float(hw["points_entry"].get()),
                 })
             except Exception:
                 pass
@@ -1859,9 +1869,12 @@ class App(tk.Tk):
                 pos_names = [a["position_name"] for a in emp.get("positions", [])]
                 main_pos = emp.get("main_position", "")
                 default_pos = main_pos if main_pos and main_pos in pos_names else (pos_names[0] if pos_names else "")
+                pos = self.dm.pos_by_name(default_pos)
+                pts = safe_float(pos.get("tip_points", 0)) if pos else 0
                 self._hours_data.append({
                     "emp_id": eid, "emp_name": emp["name"],
                     "position_name": default_pos, "shift": "Dinner", "hours": 0,
+                    "points": pts,
                 })
         else:
             self._checked_emp_ids.discard(eid)
@@ -1997,9 +2010,11 @@ class App(tk.Tk):
                 main_pos = emp.get("main_position", "")
                 matched_pos = main_pos if main_pos and main_pos in pos_names else (pos_names[0] if pos_names else job)
 
+            pos_obj = self.dm.pos_by_name(matched_pos)
+            pts = safe_float(pos_obj.get("tip_points", 0)) if pos_obj else 0
             import_entries.setdefault(eid, []).append({
                 "emp": emp, "shift": shift, "hours": hours,
-                "matched_pos": matched_pos, "csv_name": csv_name,
+                "matched_pos": matched_pos, "csv_name": csv_name, "points": pts,
             })
 
         # ── Second pass: remove old rows for imported employees, add new ones ──
@@ -2016,6 +2031,7 @@ class App(tk.Tk):
                     "position_name": entry["matched_pos"],
                     "shift": entry["shift"],
                     "hours": entry["hours"],
+                    "points": entry["points"],
                 })
                 imported += 1
 
@@ -2113,8 +2129,11 @@ class App(tk.Tk):
                     pos_names = [a["position_name"] for a in emp.get("positions", [])]
                     main_pos = emp.get("main_position", "")
                     default_pos = main_pos if main_pos and main_pos in pos_names else (pos_names[0] if pos_names else "")
+                    pos = self.dm.pos_by_name(default_pos)
+                    pts = safe_float(pos.get("tip_points", 0)) if pos else 0
                     emp_rows = [{"emp_id": eid, "emp_name": emp["name"],
-                                 "position_name": default_pos, "shift": "Dinner", "hours": 0}]
+                                 "position_name": default_pos, "shift": "Dinner", "hours": 0,
+                                 "points": pts}]
                     self._hours_data.extend(emp_rows)
 
                 for row_data in emp_rows:
@@ -2149,10 +2168,30 @@ class App(tk.Tk):
         if hrs_val:
             he.insert(0, str(hrs_val))
 
+        tk.Label(bf, text="Pts:", bg=BG_CARD, fg=FG_SEC,
+                 font=(FONT, 11)).pack(side="left")
+        pe = Inp(bf, width=4)
+        pe.pack(side="left", padx=(4, 8))
+        pts_val = row_data.get("points")
+        if pts_val is None:
+            pos = self.dm.pos_by_name(row_data.get("position_name", ""))
+            pts_val = safe_float(pos.get("tip_points", 0)) if pos else 0
+        pts_val = safe_float(pts_val)
+        pe.insert(0, str(int(pts_val)) if pts_val == int(pts_val) else str(pts_val))
+
+        def _on_pos_change(event):
+            new_pos = pcb.get()
+            pos = self.dm.pos_by_name(new_pos)
+            new_pts = safe_float(pos.get("tip_points", 0)) if pos else 0
+            pe.delete(0, "end")
+            if new_pts:
+                pe.insert(0, str(int(new_pts)) if new_pts == int(new_pts) else str(new_pts))
+        pcb.bind("<<ComboboxSelected>>", _on_pos_change)
+
         hw = {
             "emp_id": emp["id"], "emp_name": emp["name"],
             "pos_var": pcb, "shift_var": scb, "hours_entry": he,
-            "frame": bf, "row_data": row_data,
+            "points_entry": pe, "frame": bf, "row_data": row_data,
         }
         self._hours_widgets.append(hw)
 
@@ -2167,10 +2206,12 @@ class App(tk.Tk):
         pos_names = [a["position_name"] for a in emp.get("positions", [])]
         main_pos = emp.get("main_position", "")
         default_pos = main_pos if main_pos and main_pos in pos_names else (pos_names[0] if pos_names else "")
+        pos = self.dm.pos_by_name(default_pos)
+        pts = safe_float(pos.get("tip_points", 0)) if pos else 0
         new_data = {
             "emp_id": emp["id"], "emp_name": emp["name"],
             "position_name": default_pos,
-            "shift": "Dinner", "hours": 0,
+            "shift": "Dinner", "hours": 0, "points": pts,
         }
         self._hours_data.append(new_data)
         self._add_hours_row_widget(parent, emp, new_data)
@@ -2289,8 +2330,13 @@ class App(tk.Tk):
         total_pts = 0
         floor_list = []
         for b in foh_blocks:
-            pos = self.dm.pos_by_name(b["position_name"])
-            pts = safe_float(pos.get("tip_points", 0)) if pos else 0
+            # Use per-row points (editable on Hours tab); fall back to position default
+            pts = b.get("points")
+            if pts is None:
+                pos = self.dm.pos_by_name(b["position_name"])
+                pts = safe_float(pos.get("tip_points", 0)) if pos else 0
+            else:
+                pts = safe_float(pts)
             total_pts += pts
             floor_list.append({
                 "emp_id": b["emp_id"], "name": b["emp_name"],
