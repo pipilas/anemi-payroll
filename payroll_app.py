@@ -805,6 +805,16 @@ class DataManager:
                             "total_tip": round(bb["amount"], 2),
                         }
                 tip_rows.extend(merged.values())
+                # Save shift totals row so tip amounts survive even without employees
+                floor_total = safe_float(td.get("floor_tips", 0))
+                bar_total = safe_float(td.get("bar_tips", 0))
+                if (floor_total or bar_total) and not merged:
+                    tip_rows.append({
+                        "day": day_name, "shift": shift, "emp_id": "__shift_total__",
+                        "employee_name": "", "position": "",
+                        "points": 0, "floor_tip": floor_total,
+                        "bar_tip": bar_total, "total_tip": floor_total + bar_total,
+                    })
 
         self.write_csv(folder / "weekly_tips.csv", tips_f, tip_rows)
 
@@ -881,7 +891,7 @@ class DataManager:
             elif table_type == "boh":
                 all_rows.extend(boh)
             elif table_type == "tips":
-                all_rows.extend(tips)
+                all_rows.extend(r for r in tips if r.get("emp_id") != "__shift_total__")
         return all_rows
 
     # ── Compute daily labor cost for week view ────────────────────────────
@@ -939,6 +949,8 @@ class DataManager:
 
         for r in tips:
             eid = r["emp_id"]
+            if eid == "__shift_total__":
+                continue
             if eid not in ed:
                 ed[eid] = {"name": r["employee_name"], "dept": "FOH",
                            "rows": [], "tips": 0.0}
@@ -2225,7 +2237,7 @@ class App(tk.Tk):
                 except Exception:
                     pass
 
-    # ── TAB 3: Tips (only shows shifts with hours) ─────────────────────
+    # ── TAB 3: Tips — all shifts always visible ────────────────────────
     def _build_tab_tips(self):
         scroll = ScrollFrame(self._tab_content, bg=BG_PAGE)
         scroll.pack(fill="both", expand=True)
@@ -2238,27 +2250,17 @@ class App(tk.Tk):
         tk.Label(hdr, text=f"Tip Entry \u2014 {day_name}", bg=BG_PAGE, fg=FG,
                  font=(FONT, 16, "bold")).pack(side="left")
 
-        # Only show shifts that have at least one employee with hours
+        # Count FOH employees per shift (for info label)
         foh_by_shift = {}
         for b in blocks:
             pos = self.dm.pos_by_name(b["position_name"])
-            if pos and pos.get("department") == "FOH" and safe_float(b.get("hours", 0)) > 0:
+            if pos and pos.get("department") == "FOH":
                 foh_by_shift.setdefault(b["shift"], []).append(b)
-
-        if not foh_by_shift:
-            card = Card(scroll)
-            card.pack(fill="x", padx=24, pady=20)
-            tk.Label(card, text="No FOH employees with hours entered in the Hours tab.",
-                     bg=BG_CARD, fg=FG_SEC, font=(FONT, 13)).pack(pady=16)
-            return
 
         self._shift_tip_entries = {}
         self._shift_tip_display = {}
 
         for shift in SHIFTS:
-            if shift not in foh_by_shift:
-                continue
-
             shift_hdr = tk.Frame(scroll, bg=BG_PAGE)
             shift_hdr.pack(fill="x", padx=24, pady=(14, 4))
             SectionBar(shift_hdr, f"{shift} Shift",
@@ -2266,8 +2268,9 @@ class App(tk.Tk):
                        bg=BG_PAGE).pack(side="left")
             ShiftPill(shift_hdr, shift).pack(side="left", padx=8)
 
-            n_foh = len(foh_by_shift[shift])
-            tk.Label(scroll, text=f"{n_foh} FOH employee(s) in this shift",
+            n_foh = len(foh_by_shift.get(shift, []))
+            info = f"{n_foh} FOH employee(s) in this shift" if n_foh else "No FOH employees assigned yet"
+            tk.Label(scroll, text=info,
                      bg=BG_PAGE, fg=FG_SEC, font=(FONT, 11)).pack(anchor="w", padx=28)
 
             inp_card = Card(scroll)
@@ -2446,11 +2449,11 @@ class App(tk.Tk):
         blocks = [h for h in self._hours_data if h["emp_id"] in self._checked_emp_ids]
         tips = self._day_tips
 
-        if not blocks:
-            messagebox.showwarning("No Data", "No employees are checked. Nothing to save.")
+        if not blocks and not tips:
+            messagebox.showwarning("No Data", "No employees checked and no tips entered. Nothing to save.")
             return
 
-        has_zero = any(b["hours"] == 0 for b in blocks)
+        has_zero = any(b["hours"] == 0 for b in blocks) if blocks else False
 
         foh_saved, boh_saved, _ = self.dm.load_day(self.cur_mon, day_name)
         if foh_saved or boh_saved:
@@ -2462,7 +2465,9 @@ class App(tk.Tk):
         self.dm.save_day(self.cur_mon, day_name, blocks, tips)
 
         msg = f"Day saved \u2014 {day_name}!"
-        if has_zero:
+        if not blocks and tips:
+            msg += "  (Tips only — no employee hours)"
+        elif has_zero:
             msg += "  (Some shifts have 0 hours)"
         self.toast.show(msg)
 
@@ -3185,6 +3190,8 @@ class App(tk.Tk):
                     # Rebuild tips dict from tip_saved
                     tips_dict = {}
                     for t in tip_saved:
+                        if t.get("emp_id") == "__shift_total__":
+                            continue
                         shift = t.get("shift", "Dinner")
                         if shift not in tips_dict:
                             tips_dict[shift] = {

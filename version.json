@@ -1,10 +1,10 @@
 {
-  "latest_version": "1.2.23",
+  "latest_version": "1.2.24",
   "minimum_version": "1.0.0",
-  "release_date": "2026-03-20",
-  "download_url_windows": "https://github.com/pipilas/anemi-payroll/releases/download/v1.2.23/StamhadPayroll.exe",
-  "download_url_mac": "https://github.com/pipilas/anemi-payroll/releases/download/v1.2.23/StamhadPayroll-1.2.23-mac.dmg",
-  "release_notes": "- New: Editable tip points per employee on Hours tab\n- Points auto-populate from position defaults, can be overridden\n- Position change auto-updates points\n- Fix: Setting points to 0 now persists correctly (no fallback to defaults)",
+  "release_date": "2026-03-21",
+  "download_url_windows": "https://github.com/pipilas/anemi-payroll/releases/download/v1.2.24/StamhadPayroll.exe",
+  "download_url_mac": "https://github.com/pipilas/anemi-payroll/releases/download/v1.2.24/StamhadPayroll-1.2.24-mac.dmg",
+  "release_notes": "- New: Tips tab shows all shifts always — enter tips before hours\n- New: Editable tip points per employee on Hours tab\n- Fix: Setting points to 0 persists correctly",
   "mandatory": false,
   "checksum_sha256": ""
 }

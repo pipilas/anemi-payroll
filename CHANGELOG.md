@@ -1,5 +1,13 @@
 # Stamhad Payroll — Changelog
 
+## v1.2.24 — March 21, 2026
+- **New**: Tips tab shows all 3 shifts (Morning, Brunch, Dinner) always — enter tips before hours are filled
+- **New**: Editable tip points per employee on the Hours tab — "Pts" field next to each shift row
+- Points auto-populate from position defaults but can be overridden per day
+- Changing position dropdown auto-updates points to match the new position
+- Points flow into tip distribution calculation on the Tips tab
+- **Fix**: Setting points to 0 now persists correctly (no fallback to defaults)
+
 ## v1.2.23 — March 20, 2026
 - **New**: Editable tip points per employee on the Hours tab — "Pts" field next to each shift row
 - Points auto-populate from position defaults but can be overridden per day
