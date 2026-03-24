@@ -1,9 +1,11 @@
 # Stamhad Payroll — Changelog
 
-## v1.3.15 — March 23, 2026
-- **Fix**: Removed --collect-all CLI flags (incompatible with .spec files — caused build failure)
-- **Fix**: Spec-level collect_all now has debug output to show what's being collected in CI logs
-- **Fix**: Added collect_submodules as fallback alongside collect_all
+## v1.3.2 — March 23, 2026
+- **Fix**: Login session now stored in `~/Library/Application Support/StamhadPayroll/` — survives app updates
+- **Fix**: Old session auto-migrated from bundled config on first run
+- **Fix**: Removed `session.json` and runtime data from git (no more stale credentials in builds)
+- **Fix**: Added `.gitignore` for runtime data files
+- **Fix**: Paramiko SFTP bundled correctly in .app builds
 
 ## v1.3.13 — March 23, 2026
 - **Fix**: Added collect_all for cryptography package in PyInstaller spec

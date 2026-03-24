@@ -30,7 +30,27 @@ from datetime import datetime
 
 BASE_DIR = Path(__file__).parent
 CONFIG_DIR = BASE_DIR / "config"
-SESSION_FILE = CONFIG_DIR / "session.json"
+
+# Session file lives in user's home dir so it survives app updates
+import platform as _plat
+if _plat.system() == "Darwin":
+    _USER_DATA_DIR = Path.home() / "Library" / "Application Support" / "StamhadPayroll"
+elif _plat.system() == "Windows":
+    _USER_DATA_DIR = Path(os.environ.get("APPDATA", str(Path.home()))) / "StamhadPayroll"
+else:
+    _USER_DATA_DIR = Path.home() / ".stamhad_payroll"
+_USER_DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+SESSION_FILE = _USER_DATA_DIR / "session.json"
+
+# Migrate old session from bundled config dir if it exists
+_OLD_SESSION = CONFIG_DIR / "session.json"
+if _OLD_SESSION.exists() and not SESSION_FILE.exists():
+    try:
+        import shutil
+        shutil.copy2(_OLD_SESSION, SESSION_FILE)
+    except Exception:
+        pass
 FIREBASE_CONFIG_FILE = CONFIG_DIR / "firebase_config.json"
 
 SUPPORT_EMAIL = "stamhadsoftware@gmail.com"
