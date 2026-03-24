@@ -1,5 +1,10 @@
 # Stamhad Payroll — Changelog
 
+## v1.3.13 — March 23, 2026
+- **Fix**: Added collect_all for cryptography package in PyInstaller spec
+- **Fix**: Runtime debug hook logs exact paramiko import failure on .app launch
+- **Debug**: Launch .app from terminal to see `[RTHOOK]` messages showing what fails
+
 ## v1.3.12 — March 23, 2026
 - **Fix**: Added PyInstaller hook file for paramiko — ensures all submodules collected at freeze time
 - **Fix**: hookspath added to spec so PyInstaller discovers the custom hook

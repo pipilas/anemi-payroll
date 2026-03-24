@@ -16,6 +16,7 @@ paramiko_datas, paramiko_binaries, paramiko_hiddenimports = collect_all('paramik
 nacl_datas, nacl_binaries, nacl_hiddenimports = collect_all('nacl')
 bcrypt_datas, bcrypt_binaries, bcrypt_hiddenimports = collect_all('bcrypt')
 cffi_datas, cffi_binaries, cffi_hiddenimports = collect_all('cffi')
+crypto_datas, crypto_binaries, crypto_hiddenimports = collect_all('cryptography')
 try:
     SPEC_DIR = os.path.dirname(os.path.abspath(SPEC))
 except NameError:
@@ -49,8 +50,8 @@ data_files = [
 a = Analysis(
     ['payroll_v2.py'],
     pathex=[],
-    binaries=paramiko_binaries + nacl_binaries + bcrypt_binaries + cffi_binaries,
-    datas=data_files + paramiko_datas + nacl_datas + bcrypt_datas + cffi_datas,
+    binaries=paramiko_binaries + nacl_binaries + bcrypt_binaries + cffi_binaries + crypto_binaries,
+    datas=data_files + paramiko_datas + nacl_datas + bcrypt_datas + cffi_datas + crypto_datas,
     hiddenimports=[
         'payroll_app',
         'tax_calculator',
@@ -72,11 +73,11 @@ a = Analysis(
         'reportlab.lib.styles',
         'flask',
         'requests',
-    ] + paramiko_hiddenimports + nacl_hiddenimports + bcrypt_hiddenimports + cffi_hiddenimports + [
+    ] + paramiko_hiddenimports + nacl_hiddenimports + bcrypt_hiddenimports + cffi_hiddenimports + crypto_hiddenimports + [
     ],
     hookspath=[SPEC_DIR],
     hooksconfig={},
-    runtime_hooks=[],
+    runtime_hooks=[os.path.join(SPEC_DIR, 'rthook_paramiko_debug.py')],
     excludes=[],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,

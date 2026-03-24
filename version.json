@@ -1,9 +1,9 @@
 {
-  "latest_version": "1.3.12",
+  "latest_version": "1.3.13",
   "minimum_version": "1.0.0",
   "release_date": "2026-03-23",
-  "download_url_windows": "https://github.com/pipilas/anemi-payroll/releases/download/v1.3.12/StamhadPayroll.exe",
-  "download_url_mac": "https://github.com/pipilas/anemi-payroll/releases/download/v1.3.12/StamhadPayroll-1.3.12-mac.dmg",
+  "download_url_windows": "https://github.com/pipilas/anemi-payroll/releases/download/v1.3.13/StamhadPayroll.exe",
+  "download_url_mac": "https://github.com/pipilas/anemi-payroll/releases/download/v1.3.13/StamhadPayroll-1.3.13-mac.dmg",
   "release_notes": "- Fix: Paramiko SFTP package now bundles correctly in .app builds\n- Fix: Better error messages for missing dependencies",
   "mandatory": false,
   "checksum_sha256": ""
