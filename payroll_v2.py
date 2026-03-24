@@ -5,8 +5,8 @@ Extends the main App class. Does NOT modify payroll_app.py.
 
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
-import csv, json
-from datetime import date, timedelta
+import csv, json, io, platform
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from reportlab.lib.pagesizes import letter
@@ -1917,6 +1917,345 @@ def install_payroll_v2(app_class):
         import login_screen
         login_screen.require_login(_launch_app)
 
+    # ── Override Toast CSV import to fix Time In / Time Out display ────────
+    def patched_import_toast_csv(self):
+        path = filedialog.askopenfilename(
+            title="Select Toast CSV File",
+            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
+        )
+        if not path:
+            return
+        try:
+            with open(path, newline="", encoding="utf-8-sig") as f:
+                reader = csv.reader(f)
+                all_rows = list(reader)
+        except Exception as ex:
+            messagebox.showerror("Import Error", f"Could not read CSV:\n{ex}")
+            return
+        if len(all_rows) < 2:
+            messagebox.showinfo("Import", "CSV file is empty.")
+            return
+
+        header = [h.strip().lower() for h in all_rows[0]]
+        print("[V2] CSV HEADER:", header)
+
+        def _col(name):
+            try:
+                return header.index(name)
+            except ValueError:
+                return -1
+
+        i_emp = _col("employee")
+        i_job = _col("job")
+        i_ti  = _col("time in")
+        i_to  = _col("time out")
+        i_hrs = _col("payable hours")
+        if i_hrs < 0:
+            i_hrs = _col("total hours")
+        print(f"[V2] COLUMNS: emp={i_emp} job={i_job} ti={i_ti} to={i_to} hrs={i_hrs}")
+
+        parsed = []
+        for row in all_rows[1:]:
+            emp  = row[i_emp].strip()  if 0 <= i_emp < len(row) else ""
+            job  = row[i_job].strip()  if 0 <= i_job < len(row) else ""
+            ti   = row[i_ti].strip()   if 0 <= i_ti  < len(row) else ""
+            to_v = row[i_to].strip()   if 0 <= i_to  < len(row) else ""
+            hrs  = row[i_hrs].strip()  if 0 <= i_hrs < len(row) else "0"
+            print(f"[V2]   {emp!r}  job={job!r}  ti={ti!r}  to={to_v!r}  hrs={hrs!r}")
+            parsed.append([emp, job, ti, to_v, hrs])
+        if not parsed:
+            messagebox.showinfo("Import", "No data rows.")
+            return
+        self._show_time_entry_preview_v2(parsed)
+
+    def patched_show_preview(self, parsed_rows):
+        if not parsed_rows:
+            messagebox.showinfo("No Data", "Empty.")
+            return
+
+        win = tk.Toplevel(self)
+        win.title(f"Toast Time Entries — {self.sel_date.strftime('%A, %b %d')}")
+        win.geometry("980x620")
+        win.resizable(True, True)
+        win.transient(self)
+        win.grab_set()
+
+        top_hdr = tk.Frame(win, bg=BG_NAV)
+        top_hdr.pack(fill="x")
+        tk.Label(top_hdr, text=f"  Time Entries Preview — {self.sel_date.strftime('%A, %b %d, %Y')}",
+                 bg=BG_NAV, fg="#FFFFFF", font=(FONT, 14, "bold")).pack(side="left", padx=12, pady=10)
+        tk.Label(top_hdr, text=f"{len(parsed_rows)} entries",
+                 bg=BG_NAV, fg="#94A3B8", font=(FONT, 11)).pack(side="left", padx=8)
+
+        table_frame = tk.Frame(win, bg=BG_PAGE)
+        table_frame.pack(fill="both", expand=True)
+        canvas = tk.Canvas(table_frame, bg=BG_PAGE, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=canvas.yview)
+        inner = tk.Frame(canvas, bg=BG_PAGE)
+        inner.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=inner, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        def _mw(event):
+            if platform.system() == "Darwin":
+                d = event.delta
+                if abs(d) < 5:
+                    d = d * 3
+                canvas.yview_scroll(int(-d), "units")
+            else:
+                canvas.yview_scroll(int(-event.delta / 120), "units")
+        canvas.bind_all("<MouseWheel>", _mw)
+
+        cols = ["#", "Employee", "Job", "Time In", "Time Out", "Hours", "Skip"]
+        widths = [3, 20, 14, 10, 10, 7, 5]
+        hdr = tk.Frame(inner, bg=ACCENT)
+        hdr.pack(fill="x", padx=8, pady=(8, 0))
+        for c, w in zip(cols, widths):
+            tk.Label(hdr, text=c, bg=ACCENT, fg="#FFFFFF", font=(FONT, 11, "bold"),
+                     width=w, anchor="w", padx=6).pack(side="left", pady=6)
+
+        row_widgets = []
+        for idx, row in enumerate(parsed_rows):
+            bg = ROW_A if idx % 2 == 0 else ROW_B
+            rf = tk.Frame(inner, bg=bg)
+            rf.pack(fill="x", padx=8)
+
+            emp, job, ti_val, to_val, hrs_val = row[0], row[1], row[2], row[3], row[4]
+            print(f"[V2] DISPLAY ROW {idx}: ti={ti_val!r} to={to_val!r} hrs={hrs_val!r}")
+
+            tk.Label(rf, text=str(idx+1), bg=bg, fg=FG_SEC, font=(FONT,10), width=3, anchor="w", padx=6).pack(side="left", pady=4)
+            tk.Label(rf, text=emp, bg=bg, fg=FG, font=(FONT,11), width=20, anchor="w", padx=6).pack(side="left", pady=4)
+            tk.Label(rf, text=job, bg=bg, fg=FG_SEC, font=(FONT,11), width=14, anchor="w", padx=6).pack(side="left", pady=4)
+
+            ti_e = tk.Entry(rf, width=10, font=(FONT,11), relief="solid", bd=1)
+            ti_e.pack(side="left", padx=4, pady=4)
+            if ti_val:
+                ti_e.insert(tk.END, ti_val)
+
+            to_e = tk.Entry(rf, width=10, font=(FONT,11), relief="solid", bd=1)
+            to_e.pack(side="left", padx=4, pady=4)
+            if to_val:
+                to_e.insert(tk.END, to_val)
+
+            hrs_e = tk.Entry(rf, width=7, font=(FONT,11), relief="solid", bd=1)
+            hrs_e.pack(side="left", padx=4, pady=4)
+            if hrs_val:
+                hrs_e.insert(tk.END, hrs_val)
+
+            skip_v = tk.BooleanVar(master=win, value=False)
+            tk.Checkbutton(rf, variable=skip_v, bg=bg, activebackground=bg).pack(side="left", padx=8)
+
+            def _recalc(event, ti=ti_e, to=to_e, he=hrs_e):
+                try:
+                    t1 = datetime.strptime(ti.get().strip(), "%I:%M %p")
+                    t2 = datetime.strptime(to.get().strip(), "%I:%M %p")
+                    diff = (t2 - t1).seconds if t2 > t1 else (t2 - t1).seconds + 86400
+                    he.delete(0, tk.END); he.insert(0, str(round(diff/3600, 2)))
+                except Exception:
+                    pass
+            ti_e.bind("<FocusOut>", _recalc)
+            to_e.bind("<FocusOut>", _recalc)
+
+            row_widgets.append({"emp": emp, "job": job, "ti_e": ti_e, "to_e": to_e, "hrs_e": hrs_e, "skip": skip_v})
+
+        # Store refs on window so nothing gets GC'd
+        win._rw = row_widgets
+
+        btn_bar = tk.Frame(win, bg=BG_CARD, highlightbackground=BORDER, highlightthickness=1)
+        btn_bar.pack(fill="x", side="bottom")
+        tk.Label(btn_bar, text=f"{len(parsed_rows)} entries  |  Edit times, then click Import",
+                 bg=BG_CARD, fg=FG_SEC, font=(FONT,11)).pack(side="left", padx=16, pady=10)
+
+        def _do_import():
+            edited = []
+            for rw in row_widgets:
+                if rw["skip"].get():
+                    continue
+                edited.append({
+                    "Employee": rw["emp"], "Job": rw["job"],
+                    "Time In": rw["ti_e"].get().strip(),
+                    "Time Out": rw["to_e"].get().strip(),
+                    "Payable Hours": rw["hrs_e"].get().strip(),
+                })
+            canvas.unbind_all("<MouseWheel>")
+            win.destroy()
+            self._import_toast_rows(edited)
+
+        def _cancel():
+            canvas.unbind_all("<MouseWheel>")
+            win.destroy()
+
+        Btn(btn_bar, text="Cancel", style="cancel", command=_cancel).pack(side="right", padx=8, pady=8)
+        Btn(btn_bar, text="\u2713  Import Selected", style="primary", command=_do_import).pack(side="right", padx=8, pady=8)
+
+    # ── Override Toast SFTP download — SFTP uses different column names ─────
+    def patched_download_toast_sftp(self):
+        from payroll_app import (PARAMIKO_OK, SFTP_HOST, SFTP_PORT,
+            SFTP_USERNAME, SFTP_EXPORT_ID, SFTP_DEFAULT_KEY, _payroll_data_dir,
+            BASE_DIR)
+        import threading
+
+        if not PARAMIKO_OK:
+            messagebox.showerror("Missing Package",
+                "The 'paramiko' package is required.\n\npip install paramiko")
+            return
+
+        # Find SSH key — try Firebase first, then local, then ask user
+        key_path = None
+        import os, shutil
+
+        # 1) Try to load from Firebase (per-restaurant)
+        fb_key = self.dm.load_toast_ssh_key()
+        if fb_key and fb_key.exists():
+            key_path = fb_key
+            print("[V2] SSH key loaded from Firebase")
+
+        # 2) Try local candidates
+        if not key_path:
+            candidates = [
+                SFTP_DEFAULT_KEY,
+                _payroll_data_dir() / "toast_rsa_key",
+                BASE_DIR / "keys" / "toast_rsa_key",
+                Path.home() / "Library" / "Application Support" / "AnemiRoomCharge" / "keys" / "toast_rsa_key",
+                Path(os.environ.get("APPDATA", str(Path.home()))) / "AnemiRoomCharge" / "keys" / "toast_rsa_key",
+            ]
+            for c in candidates:
+                if c.exists():
+                    key_path = c
+                    break
+
+        # 3) Ask user to select key file
+        if not key_path:
+            key_path = filedialog.askopenfilename(
+                title="Select Toast SSH Key (toast_rsa_key)",
+                filetypes=[("All files", "*")])
+            if not key_path:
+                return
+            key_path = Path(key_path)
+            dest = SFTP_DEFAULT_KEY
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(str(key_path), str(dest))
+            key_path = dest
+
+        # Auto-upload to Firebase if found locally but not in Firebase
+        if key_path and not fb_key:
+            if self.dm.save_toast_ssh_key(key_path):
+                print("[V2] SSH key auto-uploaded to Firebase")
+
+        date_str = self.sel_date.strftime("%Y%m%d")
+        date_display = self.sel_date.strftime("%A, %b %d")
+
+        prog = tk.Toplevel(self)
+        prog.title("Downloading from Toast")
+        prog.geometry("360x120")
+        prog.resizable(False, False)
+        prog.transient(self)
+        prog.grab_set()
+        tk.Label(prog, text=f"Downloading TimeEntries for {date_display}...",
+                 font=(FONT, 12)).pack(pady=20)
+        prog_lbl = tk.Label(prog, text="Connecting to SFTP...", fg=FG_SEC, font=(FONT, 11))
+        prog_lbl.pack()
+        prog.update()
+
+        import paramiko as _paramiko
+
+        def _worker():
+            try:
+                pkey = _paramiko.RSAKey.from_private_key_file(str(key_path))
+                client = _paramiko.SSHClient()
+                client.set_missing_host_key_policy(_paramiko.AutoAddPolicy())
+                client.connect(hostname=SFTP_HOST, port=SFTP_PORT,
+                               username=SFTP_USERNAME, pkey=pkey,
+                               look_for_keys=False, allow_agent=False, timeout=30)
+                sftp = client.open_sftp()
+                remote_path = f"/{SFTP_EXPORT_ID}/{date_str}/TimeEntries.csv"
+                try:
+                    sftp.stat(remote_path)
+                except FileNotFoundError:
+                    sftp.close(); client.close()
+                    self.after(0, lambda: _on_error(
+                        f"TimeEntries.csv not found for {date_display}.\nPath: {remote_path}"))
+                    return
+                with sftp.open(remote_path, "r") as f:
+                    csv_data = f.read().decode("utf-8-sig")
+                sftp.close(); client.close()
+                self.after(0, lambda d=csv_data: _on_success(d))
+            except Exception as ex:
+                self.after(0, lambda: _on_error(str(ex)))
+
+        def _on_error(msg):
+            try:
+                prog.destroy()
+            except Exception:
+                pass
+            messagebox.showerror("SFTP Error", f"Download failed:\n{msg}")
+
+        def _on_success(csv_data):
+            try:
+                prog.destroy()
+            except Exception:
+                pass
+            all_rows = list(csv.reader(io.StringIO(csv_data)))
+            if len(all_rows) < 2:
+                messagebox.showinfo("No Data", f"TimeEntries for {date_display} is empty.")
+                return
+            header = [h.strip().lower() for h in all_rows[0]]
+            def _col(*names):
+                for n in names:
+                    try:
+                        return header.index(n)
+                    except ValueError:
+                        continue
+                return -1
+            # Support both SFTP format (In Date/Out Date/Job Title)
+            # and manual export format (Time In/Time Out/Job)
+            i_emp = _col("employee")
+            i_job = _col("job title", "job")
+            i_ti  = _col("in date", "time in")
+            i_to  = _col("out date", "time out")
+            i_hrs = _col("payable hours", "total hours")
+            parsed = []
+            for row in all_rows[1:]:
+                emp  = row[i_emp].strip()  if 0 <= i_emp < len(row) else ""
+                job  = row[i_job].strip()  if 0 <= i_job < len(row) else ""
+                ti   = row[i_ti].strip()   if 0 <= i_ti  < len(row) else ""
+                to_v = row[i_to].strip()   if 0 <= i_to  < len(row) else ""
+                hrs  = row[i_hrs].strip()  if 0 <= i_hrs < len(row) else "0"
+                # "In Date"/"Out Date" may be full datetime — extract time
+                if ti and " " in ti:
+                    parts = ti.split(" ", 1)
+                    if "/" in parts[0] or "-" in parts[0]:
+                        ti = parts[1]
+                if to_v and " " in to_v:
+                    parts = to_v.split(" ", 1)
+                    if "/" in parts[0] or "-" in parts[0]:
+                        to_v = parts[1]
+                parsed.append([emp, job, ti, to_v, hrs])
+            self._show_time_entry_preview_v2(parsed)
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def patched_upload_ssh_key(self):
+        """Let user select an SSH key file and upload it to Firebase."""
+        path = filedialog.askopenfilename(
+            title="Select Toast SSH Key (toast_rsa_key)",
+            filetypes=[("All files", "*")],
+        )
+        if not path:
+            return
+        ok = self.dm.save_toast_ssh_key(path)
+        if ok:
+            messagebox.showinfo("SSH Key", "Toast SSH key uploaded to Firebase successfully.\n\nAll users of this restaurant can now download from Toast.")
+        else:
+            messagebox.showerror("SSH Key", "Failed to upload SSH key to Firebase.\nCheck your internet connection.")
+
+    app_class._import_toast_csv = patched_import_toast_csv
+    app_class._download_toast_sftp = patched_download_toast_sftp
+    app_class._show_time_entry_preview_v2 = patched_show_preview
+    app_class._upload_toast_ssh_key = patched_upload_ssh_key
+
     app_class._build_nav = patched_build_nav
     app_class.nav_click = patched_nav_click
     app_class._emp_dlg = patched_emp_dlg
@@ -1991,8 +2330,12 @@ def _launch_app(email, display_name, role, uid="", restaurant_name=""):
             state="disabled")
         dropdown.add_separator()
         dropdown.add_command(
+            label="  Toast SSH Key",
+            command=lambda: _toast_ssh_key_settings(app))
+        dropdown.add_command(
             label="  Check for Updates",
             command=lambda: _check_updates_manual(app))
+        dropdown.add_separator()
         dropdown.add_command(
             label="  Sign Out",
             command=lambda: app._do_logout())
@@ -2009,6 +2352,103 @@ def _launch_app(email, display_name, role, uid="", restaurant_name=""):
         pass
 
     app.mainloop()
+
+
+def _toast_ssh_key_settings(app):
+    """Show a dialog to manage the Toast SFTP SSH key."""
+    from payroll_app import _payroll_data_dir, SFTP_DEFAULT_KEY
+
+    win = tk.Toplevel(app)
+    win.title("Toast SSH Key")
+    win.geometry("480x280")
+    win.resizable(False, False)
+    win.transient(app)
+    win.grab_set()
+
+    tk.Label(win, text="Toast SFTP SSH Key", font=(FONT, 14, "bold"),
+             bg=BG_PAGE, fg=FG).pack(pady=(16, 4))
+    tk.Label(win, text="This key is used to download time entries from Toast.",
+             font=(FONT, 11), bg=BG_PAGE, fg=FG_SEC).pack(pady=(0, 12))
+
+    # Status
+    status_var = tk.StringVar(value="Checking...")
+    status_lbl = tk.Label(win, textvariable=status_var, font=(FONT, 11),
+                          bg=BG_PAGE, fg=FG)
+    status_lbl.pack(pady=4)
+
+    def _check_status():
+        # Check Firebase
+        fb_key = app.dm.load_toast_ssh_key()
+        if fb_key and fb_key.exists():
+            status_var.set("\u2705  SSH key is stored in Firebase (synced)")
+            status_lbl.config(fg=SUCCESS)
+        elif SFTP_DEFAULT_KEY.exists():
+            status_var.set("\u26A0\uFE0F  SSH key found locally only (not synced)")
+            status_lbl.config(fg="#D97706")
+        else:
+            status_var.set("\u274C  No SSH key configured")
+            status_lbl.config(fg=DANGER)
+
+    def _upload_key():
+        path = filedialog.askopenfilename(
+            parent=win,
+            title="Select Toast SSH Key (toast_rsa_key)",
+            filetypes=[("All files", "*")])
+        if not path:
+            return
+        # Validate it looks like an SSH private key
+        try:
+            with open(path, "r", errors="ignore") as f:
+                first_line = f.readline().strip()
+            if "PRIVATE KEY" not in first_line and "BEGIN" not in first_line:
+                if not messagebox.askyesno("Warning",
+                        "This file doesn't look like an SSH private key.\n"
+                        "SSH keys usually start with '-----BEGIN RSA PRIVATE KEY-----'.\n\n"
+                        f"Selected: {Path(path).name}\n\nUpload anyway?",
+                        parent=win):
+                    return
+        except Exception:
+            pass
+        # Save locally
+        import shutil
+        SFTP_DEFAULT_KEY.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(path, str(SFTP_DEFAULT_KEY))
+        # Upload to Firebase
+        ok = app.dm.save_toast_ssh_key(path)
+        if ok:
+            messagebox.showinfo("SSH Key",
+                "Key saved and uploaded to Firebase.\n\n"
+                "All computers using this restaurant account can now download from Toast.",
+                parent=win)
+        else:
+            messagebox.showwarning("SSH Key",
+                "Key saved locally but could not upload to Firebase.\n"
+                "Check your internet connection.",
+                parent=win)
+        _check_status()
+
+    def _sync_to_firebase():
+        if SFTP_DEFAULT_KEY.exists():
+            ok = app.dm.save_toast_ssh_key(SFTP_DEFAULT_KEY)
+            if ok:
+                messagebox.showinfo("SSH Key", "Key uploaded to Firebase.", parent=win)
+            else:
+                messagebox.showerror("SSH Key", "Upload failed.", parent=win)
+            _check_status()
+        else:
+            messagebox.showwarning("SSH Key", "No local key to upload.", parent=win)
+
+    btn_frame = tk.Frame(win, bg=BG_PAGE)
+    btn_frame.pack(pady=16)
+
+    Btn(btn_frame, text="\U0001F4C2  Browse & Upload Key",
+        style="primary", command=_upload_key).pack(pady=4, padx=20, fill="x")
+    Btn(btn_frame, text="\u2601  Sync Local Key to Firebase",
+        style="ghost", command=_sync_to_firebase).pack(pady=4, padx=20, fill="x")
+    Btn(btn_frame, text="Close", style="cancel",
+        command=win.destroy).pack(pady=(8, 0), padx=20, fill="x")
+
+    _check_status()
 
 
 def _check_updates_manual(app):

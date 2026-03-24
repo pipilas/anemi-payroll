@@ -9,9 +9,16 @@ Grand Total renamed to Total Labor.
 import sys
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
-import json, csv, os, random, string, copy, platform, traceback
+import json, csv, os, random, string, copy, platform, traceback, threading, io
 from datetime import datetime, timedelta, date
 from pathlib import Path
+
+# ── Paramiko for Toast SFTP ──────────────────────────────────────────────────
+try:
+    import paramiko
+    PARAMIKO_OK = True
+except ImportError:
+    PARAMIKO_OK = False
 
 # ── Windows DPI fix: make GUI crisp on high-DPI displays ────────────────────
 if platform.system() == "Windows":
@@ -96,6 +103,25 @@ SHIFT_CLR = {"Morning": ("#FCD34D", "#78350F"),
 ROW_A     = "#FFFFFF"
 ROW_B     = "#EEF1F4"
 
+# ─── Toast SFTP Configuration ────────────────────────────────────────────
+SFTP_HOST      = "s-9b0f88558b264dfda.server.transfer.us-east-1.amazonaws.com"
+SFTP_PORT      = 22
+SFTP_USERNAME  = "MamakaMeditteraneanDataExports"
+SFTP_EXPORT_ID = "287721"
+
+def _payroll_data_dir() -> Path:
+    """User-writable data dir for SSH keys and SFTP downloads."""
+    if platform.system() == "Darwin":
+        d = Path.home() / "Library" / "Application Support" / "StamhadPayroll"
+    elif platform.system() == "Windows":
+        d = Path(os.environ.get("APPDATA", str(Path.home()))) / "StamhadPayroll"
+    else:
+        d = Path.home() / ".stamhad-payroll"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+SFTP_DEFAULT_KEY = _payroll_data_dir() / "keys" / "toast_rsa_key"
+
 # ─── Icon / Logo paths ──────────────────────────────────────────────────
 ICONS_DIR = BASE_DIR / "icons" / "png"
 ICO_FILE  = BASE_DIR / "icons" / "stamhad_payroll_icon_dark.ico"
@@ -175,31 +201,15 @@ class ScrollFrame(tk.Frame):
 
         self.bind("<Configure>", self._on_inner_cfg)
         self.canvas.bind("<Configure>", self._on_canvas_cfg)
-        self._bind_scroll_recursive(self)
-        self._bind_scroll_recursive(self.canvas)
+        # NOTE: No per-widget scroll bindings — handled by the global
+        # _global_wheel handler in App.__init__ which walks up the widget
+        # tree to find the nearest Canvas. This avoids conflicts on macOS.
 
     def _on_inner_cfg(self, _):
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
     def _on_canvas_cfg(self, e):
         self.canvas.itemconfig(self._win_id, width=e.width)
-
-    def _bind_scroll_recursive(self, widget):
-        if IS_MAC:
-            widget.bind("<MouseWheel>", self._wheel, add="+")
-        else:
-            widget.bind("<MouseWheel>", self._wheel, add="+")
-            widget.bind("<Button-4>", self._wheel_linux, add="+")
-            widget.bind("<Button-5>", self._wheel_linux, add="+")
-
-    def _wheel(self, e):
-        if IS_MAC:
-            self.canvas.yview_scroll(int(-e.delta), "units")
-        else:
-            self.canvas.yview_scroll(int(-e.delta / 120), "units")
-
-    def _wheel_linux(self, e):
-        self.canvas.yview_scroll(-3 if e.num == 4 else 3, "units")
 
     def pack(self, **kw):
         self._outer.pack(**kw)
@@ -217,7 +227,8 @@ class ScrollFrame(tk.Frame):
         self._outer.destroy()
 
     def bind_child(self, widget):
-        self._bind_scroll_recursive(widget)
+        # No-op: scrolling is handled by the global _global_wheel handler
+        pass
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -703,6 +714,46 @@ class DataManager:
         pos = self.pos_by_name(position_name)
         return safe_float(pos.get("hourly_wage", 0)) if pos else 0.0
 
+    # ── Toast SSH key (per-restaurant, stored in Firebase) ──────────────
+    def save_toast_ssh_key(self, key_path):
+        """Read an SSH private key file and store it in Firebase as base64."""
+        import base64
+        try:
+            raw = Path(key_path).read_bytes()
+            b64 = base64.b64encode(raw).decode("ascii")
+            if self.fb:
+                ok = self.fb._put("settings/toast_ssh_key", b64)
+                if ok:
+                    print("[DataManager] Toast SSH key saved to Firebase")
+                    return True
+            print("[DataManager] Firebase not available — key not saved")
+            return False
+        except Exception as e:
+            print(f"[DataManager] Failed to save SSH key: {e}")
+            return False
+
+    def load_toast_ssh_key(self):
+        """Load Toast SSH key from Firebase, write to local temp file, return Path or None."""
+        import base64, tempfile
+        if not self.fb:
+            return None
+        try:
+            b64 = self.fb._get("settings/toast_ssh_key")
+            if not b64:
+                return None
+            raw = base64.b64decode(b64)
+            # Write to a temp file for paramiko to read
+            key_dir = _payroll_data_dir() / "keys"
+            key_dir.mkdir(parents=True, exist_ok=True)
+            key_file = key_dir / "toast_rsa_key"
+            key_file.write_bytes(raw)
+            key_file.chmod(0o600)
+            print("[DataManager] Toast SSH key loaded from Firebase")
+            return key_file
+        except Exception as e:
+            print(f"[DataManager] Failed to load SSH key from Firebase: {e}")
+            return None
+
     def get_pos_field(self, position_name, field, default=0):
         pos = self.pos_by_name(position_name)
         if pos:
@@ -1138,10 +1189,9 @@ class App(tk.Tk):
         self.dm.ensure_wk(self.cur_mon)
         self._screen = None
 
-        if IS_MAC:
-            self.bind_all("<MouseWheel>", self._global_wheel)
-        else:
-            self.bind_all("<MouseWheel>", self._global_wheel)
+        # Global scroll — works for mouse wheel AND macOS trackpad
+        self.bind_all("<MouseWheel>", self._global_wheel)
+        if not IS_MAC:
             self.bind_all("<Button-4>", self._global_wheel_linux)
             self.bind_all("<Button-5>", self._global_wheel_linux)
 
@@ -1150,30 +1200,50 @@ class App(tk.Tk):
         self.main.pack(fill="both", expand=True)
         self.nav_click("Today")
 
-    def _global_wheel(self, event):
-        w = event.widget
+    def _find_scrollable_canvas(self, widget):
+        """Walk up from widget to find the nearest scrollable Canvas."""
+        w = widget
         while w:
             if isinstance(w, tk.Canvas):
+                # Make sure it actually has a scrollregion (is scrollable)
                 try:
-                    if IS_MAC:
-                        w.yview_scroll(int(-event.delta), "units")
-                    else:
-                        w.yview_scroll(int(-event.delta / 120), "units")
+                    sr = w.cget("scrollregion")
+                    if sr:
+                        return w
                 except Exception:
                     pass
-                return
-            w = getattr(w, "master", None)
+            # Also check if the widget's parent frame is a ScrollFrame
+            try:
+                w = w.master
+            except AttributeError:
+                break
+        return None
+
+    def _global_wheel(self, event):
+        canvas = self._find_scrollable_canvas(event.widget)
+        if not canvas:
+            return
+        try:
+            if IS_MAC:
+                # macOS trackpad sends small delta values (1-3),
+                # mouse wheel sends larger ones. Scale for smooth scrolling.
+                delta = event.delta
+                if abs(delta) < 5:
+                    delta = delta * 3  # boost trackpad
+                canvas.yview_scroll(int(-delta), "units")
+            else:
+                canvas.yview_scroll(int(-event.delta / 120), "units")
+        except Exception:
+            pass
 
     def _global_wheel_linux(self, event):
-        w = event.widget
-        while w:
-            if isinstance(w, tk.Canvas):
-                try:
-                    w.yview_scroll(-3 if event.num == 4 else 3, "units")
-                except Exception:
-                    pass
-                return
-            w = getattr(w, "master", None)
+        canvas = self._find_scrollable_canvas(event.widget)
+        if not canvas:
+            return
+        try:
+            canvas.yview_scroll(-3 if event.num == 4 else 3, "units")
+        except Exception:
+            pass
 
     # ══════════════════════════════════════════════════════════════════════
     #  NAVIGATION BAR
@@ -1719,9 +1789,13 @@ class App(tk.Tk):
             b.bind("<Button-1>", lambda e, t2=t: self._day_tab(t2))
             self._day_tab_btns[t] = b
 
-        # Import from Toast POS button (right side of tab bar)
-        Btn(tab_bar, text="\U0001F4E5 Import from Toast",
-            style="ghost", command=self._import_toast_csv).pack(side="right", padx=8)
+        # Import from Toast POS buttons (right side of tab bar)
+        Btn(tab_bar, text="\U0001F4E5 Import CSV",
+            style="ghost", command=self._import_toast_csv).pack(side="right", padx=4)
+        Btn(tab_bar, text="\U0001F4E1 Download from Toast",
+            style="ghost", command=self._download_toast_sftp).pack(side="right", padx=4)
+        Btn(tab_bar, text="\U0001F511 Upload SSH Key",
+            style="ghost", command=self._upload_toast_ssh_key).pack(side="right", padx=4)
 
         footer = tk.Frame(self.main, bg=BG_CARD, highlightbackground=BORDER,
                           highlightthickness=1)
@@ -1906,9 +1980,22 @@ class App(tk.Tk):
                 self._hours_data = [h for h in self._hours_data if h["emp_id"] != eid]
         self._update_footer()
 
+    # ── TOAST SSH KEY UPLOAD (stub — overridden by payroll_v2) ──────────
+    def _upload_toast_ssh_key(self):
+        path = filedialog.askopenfilename(
+            title="Select Toast SSH Key File",
+            filetypes=[("All files", "*.*")])
+        if not path:
+            return
+        ok = self.dm.save_toast_ssh_key(path)
+        if ok:
+            messagebox.showinfo("SSH Key", "Toast SSH key uploaded to Firebase.")
+        else:
+            messagebox.showerror("SSH Key", "Failed to upload SSH key.")
+
     # ── TOAST POS CSV IMPORT ────────────────────────────────────────────
     def _import_toast_csv(self):
-        """Import a Toast POS TimeEntries CSV to auto-fill employees, shifts & hours."""
+        """Open a Toast POS TimeEntries CSV and show editable preview before importing."""
         path = filedialog.askopenfilename(
             title="Select Toast CSV File",
             filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
@@ -1918,29 +2005,393 @@ class App(tk.Tk):
 
         try:
             with open(path, newline="", encoding="utf-8-sig") as f:
-                reader = csv.DictReader(f)
-                rows = list(reader)
+                reader = csv.reader(f)
+                all_rows = list(reader)
         except Exception as ex:
             messagebox.showerror("Import Error", f"Could not read CSV:\n{ex}")
             return
 
-        if not rows:
+        if len(all_rows) < 2:
             messagebox.showinfo("Import", "CSV file is empty.")
             return
 
-        # ── Build lookup of app employees by normalised name ────────────
+        header = [h.strip().lower() for h in all_rows[0]]
+
+        # Find column indices — support both SFTP and manual export formats
+        def col(*names):
+            for n in names:
+                try:
+                    return header.index(n)
+                except ValueError:
+                    continue
+            return -1
+
+        i_emp  = col("employee")
+        i_job  = col("job title", "job")
+        i_ti   = col("in date", "time in")
+        i_to   = col("out date", "time out")
+        i_hrs  = col("payable hours", "total hours")
+
+        parsed = []
+        for row in all_rows[1:]:
+            emp  = row[i_emp].strip()  if 0 <= i_emp < len(row) else ""
+            job  = row[i_job].strip()  if 0 <= i_job < len(row) else ""
+            ti   = row[i_ti].strip()   if 0 <= i_ti  < len(row) else ""
+            to_v = row[i_to].strip()   if 0 <= i_to  < len(row) else ""
+            hrs  = row[i_hrs].strip()  if 0 <= i_hrs < len(row) else "0"
+            # "In Date"/"Out Date" may be full datetime — extract time part
+            if ti and " " in ti:
+                parts = ti.split(" ", 1)
+                if "/" in parts[0] or "-" in parts[0]:
+                    ti = parts[1]
+            if to_v and " " in to_v:
+                parts = to_v.split(" ", 1)
+                if "/" in parts[0] or "-" in parts[0]:
+                    to_v = parts[1]
+            parsed.append([emp, job, ti, to_v, hrs])
+
+        if not parsed:
+            messagebox.showinfo("Import", "CSV file has no data rows.")
+            return
+
+        self._show_time_entry_preview(parsed)
+
+    # ── TOAST SFTP DOWNLOAD + PREVIEW ─────────────────────────────────────
+    def _download_toast_sftp(self):
+        """Download TimeEntries.csv from Toast SFTP for the selected date,
+        then show an editable preview before importing."""
+        if not PARAMIKO_OK:
+            messagebox.showerror("Missing Package",
+                "The 'paramiko' package is required for SFTP downloads.\n\n"
+                "Install it with:  pip install paramiko")
+            return
+
+        # Find SSH key — check multiple locations
+        key_path = None
+        candidates = [
+            SFTP_DEFAULT_KEY,
+            _payroll_data_dir() / "toast_rsa_key",
+            BASE_DIR / "keys" / "toast_rsa_key",
+            Path.home() / "Library" / "Application Support" / "AnemiRoomCharge" / "keys" / "toast_rsa_key",
+            Path(os.environ.get("APPDATA", str(Path.home()))) / "AnemiRoomCharge" / "keys" / "toast_rsa_key",
+        ]
+        for c in candidates:
+            if c.exists():
+                key_path = c
+                break
+
+        if not key_path:
+            # Ask user to locate it
+            key_path = filedialog.askopenfilename(
+                title="Select Toast SSH Key",
+                filetypes=[("All files", "*.*")],
+            )
+            if not key_path:
+                return
+            key_path = Path(key_path)
+            # Copy to default location for next time
+            dest = SFTP_DEFAULT_KEY
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            import shutil
+            shutil.copy2(str(key_path), str(dest))
+            key_path = dest
+
+        # Date to download: the currently selected date
+        date_str = self.sel_date.strftime("%Y%m%d")
+        date_display = self.sel_date.strftime("%A, %b %d")
+
+        # Show progress dialog
+        prog = tk.Toplevel(self)
+        prog.title("Downloading from Toast")
+        prog.geometry("360x120")
+        prog.resizable(False, False)
+        prog.transient(self)
+        prog.grab_set()
+        tk.Label(prog, text=f"Downloading TimeEntries for {date_display}...",
+                 font=(FONT, 12)).pack(pady=20)
+        prog_lbl = tk.Label(prog, text="Connecting to SFTP...", fg=FG_SEC,
+                            font=(FONT, 11))
+        prog_lbl.pack()
+        prog.update()
+
+        def _worker():
+            try:
+                pkey = paramiko.RSAKey.from_private_key_file(str(key_path))
+                client = paramiko.SSHClient()
+                client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                client.connect(
+                    hostname=SFTP_HOST, port=SFTP_PORT,
+                    username=SFTP_USERNAME, pkey=pkey,
+                    look_for_keys=False, allow_agent=False, timeout=30)
+                sftp = client.open_sftp()
+
+                remote_path = f"/{SFTP_EXPORT_ID}/{date_str}/TimeEntries.csv"
+                try:
+                    sftp.stat(remote_path)
+                except FileNotFoundError:
+                    sftp.close()
+                    client.close()
+                    self.after(0, lambda: _on_error(
+                        f"TimeEntries.csv not found on server for {date_display}.\n"
+                        f"Remote path: {remote_path}"))
+                    return
+
+                with sftp.open(remote_path, "r") as f:
+                    csv_data = f.read().decode("utf-8-sig")
+
+                sftp.close()
+                client.close()
+                self.after(0, lambda d=csv_data: _on_success(d))
+
+            except Exception as ex:
+                self.after(0, lambda: _on_error(str(ex)))
+
+        def _on_error(msg):
+            try:
+                prog.destroy()
+            except Exception:
+                pass
+            messagebox.showerror("SFTP Error", f"Download failed:\n{msg}")
+
+        def _on_success(csv_data):
+            try:
+                prog.destroy()
+            except Exception:
+                pass
+            all_rows = list(csv.reader(io.StringIO(csv_data)))
+            if len(all_rows) < 2:
+                messagebox.showinfo("No Data",
+                    f"TimeEntries file for {date_display} is empty.")
+                return
+            header = [h.strip().lower() for h in all_rows[0]]
+            def col(*names):
+                for n in names:
+                    try:
+                        return header.index(n)
+                    except ValueError:
+                        continue
+                return -1
+            # Support both SFTP format and manual export format
+            i_emp = col("employee")
+            i_job = col("job title", "job")
+            i_ti  = col("in date", "time in")
+            i_to  = col("out date", "time out")
+            i_hrs = col("payable hours", "total hours")
+            parsed = []
+            for row in all_rows[1:]:
+                emp  = row[i_emp].strip()  if 0 <= i_emp < len(row) else ""
+                job  = row[i_job].strip()  if 0 <= i_job < len(row) else ""
+                ti   = row[i_ti].strip()   if 0 <= i_ti  < len(row) else ""
+                to_v = row[i_to].strip()   if 0 <= i_to  < len(row) else ""
+                hrs  = row[i_hrs].strip()  if 0 <= i_hrs < len(row) else "0"
+                # SFTP "In Date"/"Out Date" may be full datetime — extract time only
+                if ti and " " in ti:
+                    # e.g. "03/22/2026 06:57 AM" → "06:57 AM"
+                    parts = ti.split(" ", 1)
+                    if "/" in parts[0] or "-" in parts[0]:
+                        ti = parts[1]
+                if to_v and " " in to_v:
+                    parts = to_v.split(" ", 1)
+                    if "/" in parts[0] or "-" in parts[0]:
+                        to_v = parts[1]
+                parsed.append([emp, job, ti, to_v, hrs])
+            self._show_time_entry_preview(parsed)
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def _show_time_entry_preview(self, parsed_rows):
+        """Show an editable preview of TimeEntries before importing.
+        parsed_rows: list of [employee, job, time_in, time_out, hours] lists."""
+        if not parsed_rows:
+            messagebox.showinfo("No Data", "TimeEntries file is empty.")
+            return
+
+        win = tk.Toplevel(self)
+        win.title(f"Toast Time Entries — {self.sel_date.strftime('%A, %b %d')}")
+        win.geometry("980x620")
+        win.resizable(True, True)
+        win.transient(self)
+        win.grab_set()
+
+        # Header
+        top_hdr = tk.Frame(win, bg=BG_NAV)
+        top_hdr.pack(fill="x")
+        tk.Label(top_hdr, text=f"  Time Entries Preview — {self.sel_date.strftime('%A, %b %d, %Y')}",
+                 bg=BG_NAV, fg="#FFFFFF", font=(FONT, 14, "bold")).pack(
+                 side="left", padx=12, pady=10)
+        tk.Label(top_hdr, text=f"{len(parsed_rows)} entries",
+                 bg=BG_NAV, fg="#94A3B8", font=(FONT, 11)).pack(
+                 side="left", padx=8)
+
+        # Scrollable table area
+        table_frame = tk.Frame(win, bg=BG_PAGE)
+        table_frame.pack(fill="both", expand=True)
+
+        canvas = tk.Canvas(table_frame, bg=BG_PAGE, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(table_frame, orient="vertical", command=canvas.yview)
+        inner = tk.Frame(canvas, bg=BG_PAGE)
+
+        inner.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=inner, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        # Mouse wheel / trackpad scrolling
+        def _on_mousewheel(event):
+            if platform.system() == "Darwin":
+                d = event.delta
+                if abs(d) < 5:
+                    d = d * 3
+                canvas.yview_scroll(int(-d), "units")
+            else:
+                canvas.yview_scroll(int(-event.delta / 120), "units")
+        canvas.bind_all("<MouseWheel>", _on_mousewheel)
+
+        # Column headers
+        cols = ["#", "Employee", "Job", "Time In", "Time Out", "Hours", "Skip"]
+        col_widths = [3, 20, 14, 10, 10, 7, 5]
+        hdr_row = tk.Frame(inner, bg=ACCENT)
+        hdr_row.pack(fill="x", padx=8, pady=(8, 0))
+        for col, w in zip(cols, col_widths):
+            tk.Label(hdr_row, text=col, bg=ACCENT, fg="#FFFFFF",
+                     font=(FONT, 11, "bold"), width=w, anchor="w",
+                     padx=6).pack(side="left", pady=6)
+
+        # Store references on the window to prevent garbage-collection
+        win._all_vars = []
+        win._row_widgets = []
+
+        # Editable rows — parsed_rows is [[emp, job, ti, to, hrs], ...]
+        row_widgets = win._row_widgets
+        for idx, row in enumerate(parsed_rows):
+            bg = ROW_A if idx % 2 == 0 else ROW_B
+            rf = tk.Frame(inner, bg=bg)
+            rf.pack(fill="x", padx=8)
+
+            # Direct index access — no dict keys involved
+            emp_name = row[0]
+            job      = row[1]
+            time_in  = row[2]
+            time_out = row[3]
+            hours    = row[4]
+
+            # Row number
+            tk.Label(rf, text=str(idx + 1), bg=bg, fg=FG_SEC,
+                     font=(FONT, 10), width=3, anchor="w", padx=6).pack(
+                     side="left", pady=4)
+
+            # Employee name (read-only label)
+            tk.Label(rf, text=emp_name, bg=bg, fg=FG,
+                     font=(FONT, 11), width=20, anchor="w", padx=6).pack(
+                     side="left", pady=4)
+
+            # Job (read-only label)
+            tk.Label(rf, text=job, bg=bg, fg=FG_SEC,
+                     font=(FONT, 11), width=14, anchor="w", padx=6).pack(
+                     side="left", pady=4)
+
+            # Time In (editable)
+            ti_entry = tk.Entry(rf, width=10, font=(FONT, 12),
+                                relief="solid", bd=1)
+            ti_entry.insert(0, time_in)
+            ti_entry.pack(side="left", padx=4, pady=4)
+
+            # Time Out (editable)
+            to_entry = tk.Entry(rf, width=10, font=(FONT, 12),
+                                relief="solid", bd=1)
+            to_entry.insert(0, time_out)
+            to_entry.pack(side="left", padx=4, pady=4)
+
+            # Hours (editable)
+            hrs_entry = tk.Entry(rf, width=7, font=(FONT, 12),
+                                 relief="solid", bd=1)
+            hrs_entry.insert(0, hours)
+            hrs_entry.pack(side="left", padx=4, pady=4)
+
+            # Skip checkbox
+            skip_var = tk.BooleanVar(master=win, value=False)
+            win._all_vars.append(skip_var)
+            tk.Checkbutton(rf, variable=skip_var, bg=bg,
+                           activebackground=bg).pack(side="left", padx=8)
+
+            # Auto-recalc hours when time in/out change
+            def _recalc_hours(event, ti=ti_entry, to=to_entry, he=hrs_entry):
+                try:
+                    t_in = datetime.strptime(ti.get().strip(), "%I:%M %p")
+                    t_out = datetime.strptime(to.get().strip(), "%I:%M %p")
+                    if t_out <= t_in:
+                        diff = (t_out - t_in).seconds + 86400
+                    else:
+                        diff = (t_out - t_in).seconds
+                    he.delete(0, "end")
+                    he.insert(0, str(round(diff / 3600, 2)))
+                except Exception:
+                    pass
+
+            ti_entry.bind("<FocusOut>", _recalc_hours)
+            to_entry.bind("<FocusOut>", _recalc_hours)
+
+            row_widgets.append({
+                "emp_name": emp_name,
+                "job": job,
+                "ti_entry": ti_entry,
+                "to_entry": to_entry,
+                "hrs_entry": hrs_entry,
+                "skip_var": skip_var,
+            })
+
+        # Bottom button bar
+        btn_bar = tk.Frame(win, bg=BG_CARD, highlightbackground=BORDER,
+                           highlightthickness=1)
+        btn_bar.pack(fill="x", side="bottom")
+
+        tk.Label(btn_bar, text=f"{len(parsed_rows)} entries  |  Edit times, then click Import",
+                 bg=BG_CARD, fg=FG_SEC, font=(FONT, 11)).pack(side="left", padx=16, pady=10)
+
+        def _do_import():
+            edited_rows = []
+            for rw in row_widgets:
+                if rw["skip_var"].get():
+                    continue
+                edited_rows.append({
+                    "Employee": rw["emp_name"],
+                    "Job": rw["job"],
+                    "Time In": rw["ti_entry"].get().strip(),
+                    "Time Out": rw["to_entry"].get().strip(),
+                    "Payable Hours": rw["hrs_entry"].get().strip(),
+                })
+            canvas.unbind_all("<MouseWheel>")
+            win.destroy()
+            self._import_toast_rows(edited_rows)
+
+        def _cancel():
+            canvas.unbind_all("<MouseWheel>")
+            win.destroy()
+
+        Btn(btn_bar, text="Cancel", style="cancel",
+            command=_cancel).pack(side="right", padx=8, pady=8)
+        Btn(btn_bar, text="\u2713  Import Selected", style="primary",
+            command=_do_import).pack(side="right", padx=8, pady=8)
+
+    def _import_toast_rows(self, rows):
+        """Import pre-processed rows (from SFTP preview or manual CSV).
+        rows: list of dicts with Employee, Job, Time In, Time Out, Payable Hours."""
+        if not rows:
+            messagebox.showinfo("Import", "No entries to import.")
+            return
+
         all_emps = self.dm.employees
-        emp_by_norm = {}   # "first last" -> emp dict
+        emp_by_norm = {}
         for emp in all_emps:
             norm = emp["name"].strip().lower()
             emp_by_norm[norm] = emp
-            # Also index by last,first reversed
             parts = norm.split()
             if len(parts) >= 2:
                 emp_by_norm[" ".join(parts[1:]) + " " + parts[0]] = emp
 
         def _normalize_csv_name(raw):
-            """Convert 'Last, First' to 'first last' normalised."""
             raw = raw.strip().strip('"')
             if "," in raw:
                 last, first = raw.split(",", 1)
@@ -1948,23 +2399,18 @@ class App(tk.Tk):
             return raw.lower()
 
         def _match_employee(csv_name):
-            """Try exact match, then fuzzy substring match."""
             norm = _normalize_csv_name(csv_name)
-            # Exact match
             if norm in emp_by_norm:
                 return emp_by_norm[norm]
-            # Try matching ignoring extra spaces / middle names
             norm_parts = norm.split()
             for key, emp in emp_by_norm.items():
                 key_parts = key.split()
-                # Match if first and last name match (handles middle names)
                 if len(norm_parts) >= 2 and len(key_parts) >= 2:
                     if norm_parts[0] == key_parts[0] and norm_parts[-1] == key_parts[-1]:
                         return emp
             return None
 
         def _parse_shift(time_in_str):
-            """Before 11:30 AM = Morning, otherwise Dinner."""
             try:
                 t = datetime.strptime(time_in_str.strip(), "%I:%M %p")
                 cutoff = t.replace(hour=11, minute=30)
@@ -1972,8 +2418,7 @@ class App(tk.Tk):
             except Exception:
                 return "Dinner"
 
-        # ── First pass: collect valid import entries per employee ──────
-        import_entries = {}  # eid -> list of {emp, job, shift, hours, matched_pos, csv_name}
+        import_entries = {}
         imported = 0
         skipped_names = []
 
@@ -1993,17 +2438,15 @@ class App(tk.Tk):
             hours = safe_float(row.get("Payable Hours", 0))
             shift = _parse_shift(time_in)
 
-            # Skip zero-hour entries: still clocked in, or accidental same-time clock in/out
             if hours == 0:
                 if not time_out:
                     skipped_names.append(f"{csv_name} (still clocked in)")
                 elif time_in == time_out:
-                    skipped_names.append(f"{csv_name} (clock in/out same time — skipped)")
+                    skipped_names.append(f"{csv_name} (clock in/out same time)")
                 else:
                     skipped_names.append(f"{csv_name} (0 hours)")
                 continue
 
-            # Try to match job from CSV to employee positions
             pos_names = [a["position_name"] for a in emp.get("positions", [])]
             matched_pos = ""
             if job:
@@ -2011,7 +2454,6 @@ class App(tk.Tk):
                     if pn.lower() == job.lower():
                         matched_pos = pn
                         break
-            # Morning shift: prefer "(morning)" variant of the position
             if shift == "Morning":
                 base = (matched_pos or job).lower().split("(")[0].strip()
                 for pn in pos_names:
@@ -2029,9 +2471,7 @@ class App(tk.Tk):
                 "matched_pos": matched_pos, "csv_name": csv_name, "points": pts,
             })
 
-        # ── Second pass: remove old rows for imported employees, add new ones ──
         imported_eids = set(import_entries.keys())
-        # Keep rows for employees NOT in the import; drop old rows for imported ones
         new_hours = [h for h in self._hours_data if h["emp_id"] not in imported_eids]
         new_checked = set(self._checked_emp_ids)
 
@@ -2046,23 +2486,19 @@ class App(tk.Tk):
                     "points": entry["points"],
                 })
                 imported += 1
-
             new_checked.add(eid)
 
         self._checked_emp_ids = new_checked
         self._hours_data = new_hours
 
-        # ── Summary message ─────────────────────────────────────────────
-        msg = f"Imported {imported} entries from Toast CSV."
+        msg = f"Imported {imported} entries from Toast."
         if skipped_names:
             unique_skipped = sorted(set(skipped_names))
             msg += f"\n\n{len(unique_skipped)} employee(s) not matched:\n"
-            msg += "\n".join(f"  • {n}" for n in unique_skipped[:20])
+            msg += "\n".join(f"  \u2022 {n}" for n in unique_skipped[:20])
             if len(unique_skipped) > 20:
-                msg += f"\n  … and {len(unique_skipped) - 20} more"
+                msg += f"\n  \u2026 and {len(unique_skipped) - 20} more"
         messagebox.showinfo("Toast Import", msg)
-
-        # Refresh the current tab
         self._day_tab(self._current_tab_name() or "\U0001F465 Employees")
 
     def _current_tab_name(self):

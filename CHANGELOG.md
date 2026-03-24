@@ -1,5 +1,19 @@
 # Stamhad Payroll — Changelog
 
+## v1.3.0 — March 23, 2026
+- **New**: Toast SFTP download — "Download from Toast" button fetches TimeEntries directly from Toast server via SSH
+- **New**: Editable preview window shows Employee, Job, Time In, Time Out, Hours before importing — edit times, skip rows
+- **New**: SSH key stored per-restaurant in Firebase — set up once, works on all computers automatically
+- **New**: Toast SSH Key settings in hamburger menu — browse, upload, and sync SSH keys
+- **New**: Tips-only save — enter tips before employee hours are filled (shift totals persist)
+- **New**: Tips tab shows all 3 shifts (Morning, Brunch, Dinner) always
+- **New**: Editable tip points per employee on Hours tab
+- **Fix**: SFTP and manual CSV import both supported (different column formats: In Date/Out Date vs Time In/Time Out)
+- **Fix**: Date stripped from SFTP time fields (e.g. "03/22/2026 06:57 AM" → "06:57 AM")
+- **Fix**: Trackpad and mouse wheel scrolling fixed across the entire app on macOS
+- **Fix**: Points set to 0 persist correctly (no revert to defaults)
+- **Fix**: Tips persist when saved without employees (shift total sentinel rows)
+
 ## v1.2.24 — March 21, 2026
 - **New**: Tips tab shows all 3 shifts (Morning, Brunch, Dinner) always — enter tips before hours are filled
 - **New**: Editable tip points per employee on the Hours tab — "Pts" field next to each shift row
