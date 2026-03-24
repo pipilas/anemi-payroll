@@ -17,8 +17,9 @@ from pathlib import Path
 try:
     import paramiko
     PARAMIKO_OK = True
-except ImportError:
+except ImportError as _e:
     PARAMIKO_OK = False
+    _PARAMIKO_ERR = str(_e)
 
 # ── Windows DPI fix: make GUI crisp on high-DPI displays ────────────────────
 if platform.system() == "Windows":

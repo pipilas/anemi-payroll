@@ -2098,8 +2098,9 @@ def install_payroll_v2(app_class):
         import threading
 
         if not PARAMIKO_OK:
+            from payroll_app import _PARAMIKO_ERR
             messagebox.showerror("Missing Package",
-                "The 'paramiko' package is required.\n\npip install paramiko")
+                f"The 'paramiko' package is required.\n\npip install paramiko\n\nError: {_PARAMIKO_ERR}")
             return
 
         # Find SSH key — try Firebase first, then local, then ask user

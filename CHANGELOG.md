@@ -1,5 +1,9 @@
 # Stamhad Payroll — Changelog
 
+## v1.3.1 — March 23, 2026
+- **Fix**: Paramiko and all SFTP dependencies now bundle correctly in packaged .app builds
+- **Fix**: Better error messages show actual missing module when import fails
+
 ## v1.3.0 — March 23, 2026
 - **New**: Toast SFTP download — "Download from Toast" button fetches TimeEntries directly from Toast server via SSH
 - **New**: Editable preview window shows Employee, Job, Time In, Time Out, Hours before importing — edit times, skip rows

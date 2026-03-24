@@ -1,10 +1,10 @@
 {
-  "latest_version": "1.3.0",
+  "latest_version": "1.3.1",
   "minimum_version": "1.0.0",
   "release_date": "2026-03-23",
-  "download_url_windows": "https://github.com/pipilas/anemi-payroll/releases/download/v1.3.0/StamhadPayroll.exe",
-  "download_url_mac": "https://github.com/pipilas/anemi-payroll/releases/download/v1.3.0/StamhadPayroll-1.3.0-mac.dmg",
-  "release_notes": "- New: Toast SFTP download — fetch time entries directly from Toast server\n- New: Editable preview window with Time In, Time Out, Job, Hours before importing\n- New: SSH key management — stored per-restaurant in Firebase, syncs across all computers\n- New: Toast SSH Key settings in hamburger menu\n- Fix: SFTP CSV format support (In Date/Out Date/Job Title columns)\n- Fix: Trackpad and mouse scrolling across the entire app on macOS\n- New: Tips-only save — enter tips before employee hours are filled\n- New: Tips tab shows all shifts always (Morning, Brunch, Dinner)",
+  "download_url_windows": "https://github.com/pipilas/anemi-payroll/releases/download/v1.3.1/StamhadPayroll.exe",
+  "download_url_mac": "https://github.com/pipilas/anemi-payroll/releases/download/v1.3.1/StamhadPayroll-1.3.1-mac.dmg",
+  "release_notes": "- Fix: Paramiko SFTP package now bundles correctly in .app builds\n- Fix: Better error messages for missing dependencies",
   "mandatory": false,
   "checksum_sha256": ""
 }
