@@ -1,6 +1,6 @@
 # Stamhad Payroll — Changelog
 
-## v1.3.1 — March 23, 2026
+## v1.3.11 — March 23, 2026
 - **Fix**: Paramiko and all SFTP dependencies now bundle correctly in packaged .app builds
 - **Fix**: Better error messages show actual missing module when import fails
 
