@@ -20,10 +20,16 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies
-        run: pip install pyinstaller reportlab requests flask
+        run: |
+          pip install pyinstaller reportlab requests flask paramiko bcrypt pynacl cryptography cffi
+          pip install -r requirements.txt
+
+      - name: Verify paramiko
+        run: python -c "import paramiko; print('paramiko', paramiko.__version__)"
 
       - name: Build EXE
-        run: pyinstaller stamhad_payroll.spec --clean --noconfirm
+        run: |
+          pyinstaller stamhad_payroll.spec --clean --noconfirm --collect-all paramiko --collect-all cryptography --collect-all nacl --collect-all bcrypt --collect-all cffi
 
       - name: Upload EXE artifact
         uses: actions/upload-artifact@v4
@@ -42,10 +48,26 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies
-        run: pip install pyinstaller reportlab requests flask
+        run: |
+          pip install pyinstaller reportlab requests flask paramiko bcrypt pynacl cryptography cffi
+          pip install -r requirements.txt
+
+      - name: Verify paramiko
+        run: python -c "import paramiko; print('paramiko', paramiko.__version__)"
 
       - name: Build APP
-        run: pyinstaller stamhad_payroll.spec --clean --noconfirm
+        run: |
+          pyinstaller stamhad_payroll.spec --clean --noconfirm \
+            --collect-all paramiko \
+            --collect-all cryptography \
+            --collect-all nacl \
+            --collect-all bcrypt \
+            --collect-all cffi
+
+      - name: Verify paramiko in bundle
+        run: |
+          echo "Checking for paramiko in dist:"
+          find dist -name "paramiko" -o -name "paramiko*" | head -20 || echo "No paramiko found in dist!"
 
       - name: Get version
         id: version

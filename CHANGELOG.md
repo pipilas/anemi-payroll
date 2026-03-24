@@ -1,5 +1,9 @@
 # Stamhad Payroll — Changelog
 
+## v1.3.14 — March 23, 2026
+- **Fix**: Use --collect-all flags on pyinstaller CLI instead of spec-level collect_all (spec was silently failing)
+- **Fix**: All SFTP deps (paramiko, cryptography, nacl, bcrypt, cffi) now collected via CLI flags in CI
+
 ## v1.3.13 — March 23, 2026
 - **Fix**: Added collect_all for cryptography package in PyInstaller spec
 - **Fix**: Runtime debug hook logs exact paramiko import failure on .app launch
