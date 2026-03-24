@@ -28,8 +28,7 @@ jobs:
         run: python -c "import paramiko; print('paramiko', paramiko.__version__)"
 
       - name: Build EXE
-        run: |
-          pyinstaller stamhad_payroll.spec --clean --noconfirm --collect-all paramiko --collect-all cryptography --collect-all nacl --collect-all bcrypt --collect-all cffi
+        run: pyinstaller stamhad_payroll.spec --clean --noconfirm
 
       - name: Upload EXE artifact
         uses: actions/upload-artifact@v4
@@ -56,13 +55,7 @@ jobs:
         run: python -c "import paramiko; print('paramiko', paramiko.__version__)"
 
       - name: Build APP
-        run: |
-          pyinstaller stamhad_payroll.spec --clean --noconfirm \
-            --collect-all paramiko \
-            --collect-all cryptography \
-            --collect-all nacl \
-            --collect-all bcrypt \
-            --collect-all cffi
+        run: pyinstaller stamhad_payroll.spec --clean --noconfirm
 
       - name: Verify paramiko in bundle
         run: |

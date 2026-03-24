@@ -10,13 +10,29 @@ import os
 block_cipher = None
 
 # Force-collect paramiko and its dependencies
-from PyInstaller.utils.hooks import collect_all
+from PyInstaller.utils.hooks import collect_all, collect_submodules
 
-paramiko_datas, paramiko_binaries, paramiko_hiddenimports = collect_all('paramiko')
-nacl_datas, nacl_binaries, nacl_hiddenimports = collect_all('nacl')
-bcrypt_datas, bcrypt_binaries, bcrypt_hiddenimports = collect_all('bcrypt')
-cffi_datas, cffi_binaries, cffi_hiddenimports = collect_all('cffi')
-crypto_datas, crypto_binaries, crypto_hiddenimports = collect_all('cryptography')
+_extra_datas = []
+_extra_binaries = []
+_extra_hiddenimports = []
+
+for _pkg in ['paramiko', 'nacl', 'bcrypt', 'cffi', 'cryptography']:
+    try:
+        _d, _b, _h = collect_all(_pkg)
+        _extra_datas += _d
+        _extra_binaries += _b
+        _extra_hiddenimports += _h
+        print(f"[SPEC] collect_all('{_pkg}'): {len(_d)} datas, {len(_b)} binaries, {len(_h)} hiddenimports")
+    except Exception as _e:
+        print(f"[SPEC] collect_all('{_pkg}') FAILED: {_e}")
+    try:
+        _subs = collect_submodules(_pkg)
+        _extra_hiddenimports += _subs
+        print(f"[SPEC] collect_submodules('{_pkg}'): {len(_subs)} submodules")
+    except Exception as _e2:
+        print(f"[SPEC] collect_submodules('{_pkg}') FAILED: {_e2}")
+
+print(f"[SPEC] TOTAL: {len(_extra_datas)} datas, {len(_extra_binaries)} binaries, {len(_extra_hiddenimports)} hiddenimports")
 try:
     SPEC_DIR = os.path.dirname(os.path.abspath(SPEC))
 except NameError:
@@ -50,8 +66,8 @@ data_files = [
 a = Analysis(
     ['payroll_v2.py'],
     pathex=[],
-    binaries=paramiko_binaries + nacl_binaries + bcrypt_binaries + cffi_binaries + crypto_binaries,
-    datas=data_files + paramiko_datas + nacl_datas + bcrypt_datas + cffi_datas + crypto_datas,
+    binaries=_extra_binaries,
+    datas=data_files + _extra_datas,
     hiddenimports=[
         'payroll_app',
         'tax_calculator',
@@ -73,7 +89,7 @@ a = Analysis(
         'reportlab.lib.styles',
         'flask',
         'requests',
-    ] + paramiko_hiddenimports + nacl_hiddenimports + bcrypt_hiddenimports + cffi_hiddenimports + crypto_hiddenimports + [
+    ] + _extra_hiddenimports + [
     ],
     hookspath=[SPEC_DIR],
     hooksconfig={},
