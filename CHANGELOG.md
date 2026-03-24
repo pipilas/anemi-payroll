@@ -1,7 +1,13 @@
 # Stamhad Payroll — Changelog
 
+## v1.3.12 — March 23, 2026
+- **Fix**: Added PyInstaller hook file for paramiko — ensures all submodules collected at freeze time
+- **Fix**: hookspath added to spec so PyInstaller discovers the custom hook
+- **Fix**: Force-collect paramiko, nacl, bcrypt, cryptography, cffi in build
+
 ## v1.3.11 — March 23, 2026
-- **Fix**: Paramiko and all SFTP dependencies now bundle correctly in packaged .app builds
+- **Fix**: Paramiko and all SFTP dependencies (bcrypt, pynacl, cryptography, cffi) force-collected in PyInstaller build
+- **Fix**: CI workflow explicitly installs all paramiko sub-dependencies
 - **Fix**: Better error messages show actual missing module when import fails
 
 ## v1.3.0 — March 23, 2026

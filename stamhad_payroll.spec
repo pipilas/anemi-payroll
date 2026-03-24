@@ -74,7 +74,7 @@ a = Analysis(
         'requests',
     ] + paramiko_hiddenimports + nacl_hiddenimports + bcrypt_hiddenimports + cffi_hiddenimports + [
     ],
-    hookspath=[],
+    hookspath=[SPEC_DIR],
     hooksconfig={},
     runtime_hooks=[],
     excludes=[],
