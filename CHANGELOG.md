@@ -1,6 +1,6 @@
 # Stamhad Payroll — Changelog
 
-## v1.3.2 — March 23, 2026
+## v1.4.0 — March 23, 2026
 - **Fix**: Login session now stored in `~/Library/Application Support/StamhadPayroll/` — survives app updates
 - **Fix**: Old session auto-migrated from bundled config on first run
 - **Fix**: Removed `session.json` and runtime data from git (no more stale credentials in builds)
