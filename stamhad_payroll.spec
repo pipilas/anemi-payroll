@@ -8,6 +8,14 @@ import sys
 import os
 
 block_cipher = None
+
+# Force-collect paramiko and its dependencies
+from PyInstaller.utils.hooks import collect_all
+
+paramiko_datas, paramiko_binaries, paramiko_hiddenimports = collect_all('paramiko')
+nacl_datas, nacl_binaries, nacl_hiddenimports = collect_all('nacl')
+bcrypt_datas, bcrypt_binaries, bcrypt_hiddenimports = collect_all('bcrypt')
+cffi_datas, cffi_binaries, cffi_hiddenimports = collect_all('cffi')
 try:
     SPEC_DIR = os.path.dirname(os.path.abspath(SPEC))
 except NameError:
@@ -41,8 +49,8 @@ data_files = [
 a = Analysis(
     ['payroll_v2.py'],
     pathex=[],
-    binaries=[],
-    datas=data_files,
+    binaries=paramiko_binaries + nacl_binaries + bcrypt_binaries + cffi_binaries,
+    datas=data_files + paramiko_datas + nacl_datas + bcrypt_datas + cffi_datas,
     hiddenimports=[
         'payroll_app',
         'tax_calculator',
@@ -64,39 +72,7 @@ a = Analysis(
         'reportlab.lib.styles',
         'flask',
         'requests',
-        'paramiko',
-        'paramiko.transport',
-        'paramiko.sftp_client',
-        'paramiko.rsakey',
-        'paramiko.ecdsakey',
-        'paramiko.ed25519key',
-        'paramiko.dsskey',
-        'paramiko.ssh_exception',
-        'paramiko.channel',
-        'paramiko.sftp',
-        'paramiko.sftp_handle',
-        'paramiko.sftp_si',
-        'paramiko.sftp_attr',
-        'paramiko.sftp_file',
-        'paramiko.agent',
-        'paramiko.auth_handler',
-        'paramiko.kex_group1',
-        'paramiko.kex_group14',
-        'paramiko.kex_group16',
-        'paramiko.kex_ecdh_nist',
-        'paramiko.kex_curve25519',
-        'nacl',
-        'nacl.bindings',
-        'nacl.public',
-        'bcrypt',
-        'cryptography',
-        'cryptography.hazmat',
-        'cryptography.hazmat.primitives',
-        'cryptography.hazmat.primitives.asymmetric',
-        'cryptography.hazmat.primitives.asymmetric.rsa',
-        'cryptography.hazmat.primitives.asymmetric.ed25519',
-        'cryptography.hazmat.primitives.ciphers',
-        'cryptography.hazmat.backends',
+    ] + paramiko_hiddenimports + nacl_hiddenimports + bcrypt_hiddenimports + cffi_hiddenimports + [
     ],
     hookspath=[],
     hooksconfig={},
