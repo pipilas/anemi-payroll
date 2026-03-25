@@ -1,6 +1,7 @@
 # Stamhad Payroll — Changelog
 
-## v1.4.1 — March 24, 2026
+## v1.4.11 — March 24, 2026
+- **Fix**: Unsaved changes now uses simple dirty flag — no more save/uncheck bugs
 - **New**: Unsaved changes popup — save/discard/cancel on tab switch, day change, or app close
 - **New**: % check reduction shown on PDF payslip, all-employees PDF, and CSV export
 - **New**: Fixed-wage (standard salary) employees auto-checked on Today page every day
