@@ -1,10 +1,10 @@
 {
-  "latest_version": "1.4.0",
+  "latest_version": "1.4.1",
   "minimum_version": "1.0.0",
   "release_date": "2026-03-23",
-  "download_url_windows": "https://github.com/pipilas/anemi-payroll/releases/download/v1.4.0/StamhadPayroll.exe",
-  "download_url_mac": "https://github.com/pipilas/anemi-payroll/releases/download/v1.4.0/StamhadPayroll-1.4.0-mac.dmg",
-  "release_notes": "- Fix: Session persists across app updates (moved to user data folder)\n- Fix: Paramiko SFTP bundled correctly in .app builds\n- Fix: Removed stale credentials from app bundle",
+  "download_url_windows": "https://github.com/pipilas/anemi-payroll/releases/download/v1.4.1/StamhadPayroll.exe",
+  "download_url_mac": "https://github.com/pipilas/anemi-payroll/releases/download/v1.4.1/StamhadPayroll-1.4.1-mac.dmg",
+  "release_notes": "- New: Unsaved changes popup on all navigation (save/discard/cancel)\n- New: % deduction shown on PDF payslip and all-employees report\n- New: Fixed-wage employees auto-added to daily roster\n- Fix: Missing os import for Windows builds\n- Fix: Session persists across app updates",
   "mandatory": false,
   "checksum_sha256": ""
 }

@@ -1,5 +1,12 @@
 # Stamhad Payroll — Changelog
 
+## v1.4.1 — March 24, 2026
+- **New**: Unsaved changes popup — save/discard/cancel on tab switch, day change, or app close
+- **New**: % check reduction shown on PDF payslip, all-employees PDF, and CSV export
+- **New**: Fixed-wage (standard salary) employees auto-checked on Today page every day
+- **Fix**: Missing `os` import in auth_manager.py (Windows build crash)
+- **Fix**: Session file stored in user data folder — persists across app updates
+
 ## v1.4.0 — March 23, 2026
 - **Fix**: Login session now stored in `~/Library/Application Support/StamhadPayroll/` — survives app updates
 - **Fix**: Old session auto-migrated from bundled config on first run

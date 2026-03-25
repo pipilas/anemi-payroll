@@ -1479,6 +1479,43 @@ def _export_payslip_pdf(app, emp, pr, taxes, mon):
         ]))
         elements.append(net_table)
 
+    # ── Check Reduction (if enabled) ──────────────────────────────────────
+    red_data = emp.get("reduction", {})
+    if red_data.get("enabled", False):
+        red_pct = red_data.get("percentage", 10)
+        if taxes.get("tax_enabled"):
+            pay_before_red = taxes["net_pay"]
+        else:
+            pay_before_red = gross
+        red_amount = round(pay_before_red * red_pct / 100, 2)
+        pay_after_red = round(pay_before_red - red_amount, 2)
+
+        elements.append(Spacer(1, 8))
+        elements.append(Paragraph(f"CHECK REDUCTION ({red_pct}%)", section_style))
+
+        red_data_rows = [
+            ["Pay before reduction", "", "", _fmt_r(pay_before_red)],
+            [f"Reduction ({red_pct}%)", "", "", f"\u2212{_fmt_r(red_amount)}"],
+            ["", "", "", ""],
+            ["FINAL PAY (After Reduction)", "", "", _fmt_r(pay_after_red)],
+        ]
+        red_table = Table(red_data_rows, colWidths=[200, 80, 60, 100])
+        red_table.setStyle(TableStyle([
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, -1), (-1, -1), 14),
+            ('TEXTCOLOR', (3, 1), (3, 1), colors.HexColor("#DC2626")),
+            ('TEXTCOLOR', (0, -1), (-1, -1), colors.HexColor("#92400E")),
+            ('ALIGN', (3, 0), (3, -1), 'RIGHT'),
+            ('LINEABOVE', (0, -1), (-1, -1), 0.5, colors.HexColor("#D1D5DB")),
+            ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor("#FEF3C7")),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ('TOPPADDING', (0, -1), (-1, -1), 8),
+            ('BOTTOMPADDING', (0, -1), (-1, -1), 8),
+        ]))
+        elements.append(red_table)
+
     # ── Employer Costs ────────────────────────────────────────────────────
     elements.append(Spacer(1, 8))
     elements.append(Paragraph("EMPLOYER COSTS (not deducted from employee)", section_style))
@@ -1565,6 +1602,19 @@ def _export_payslip_csv(app, emp, pr, taxes, mon):
                      "Amount": -round(taxes["total_deductions"], 2)})
         rows.append({"Category": "Net", "Item": "Net Pay",
                      "Amount": round(taxes["net_pay"], 2)})
+
+    # Check Reduction
+    _red_data = emp.get("reduction", {})
+    if _red_data.get("enabled", False):
+        _red_pct = _red_data.get("percentage", 10)
+        _gross = round(pr["regular_wages"] + pr["overtime_wages"] + pr["total_tips"], 2)
+        _pbr = taxes["net_pay"] if taxes.get("tax_enabled") else _gross
+        _red_amt = round(_pbr * _red_pct / 100, 2)
+        _par = round(_pbr - _red_amt, 2)
+        rows.append({"Category": "Reduction", "Item": f"Check Reduction ({_red_pct}%)",
+                     "Amount": -round(_red_amt, 2)})
+        rows.append({"Category": "Reduction", "Item": "Final Pay (After Reduction)",
+                     "Amount": _par})
 
     for label, key in [
         ("Employer SS", "employer_ss"), ("Employer Medicare", "employer_medicare"),
@@ -1757,6 +1807,33 @@ def _export_all_pdf(app, mon):
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
             ]))
             elements.append(dt)
+
+        # Check Reduction (if enabled)
+        _red_data = emp_obj.get("reduction", {})
+        if _red_data.get("enabled", False):
+            _red_pct = _red_data.get("percentage", 10)
+            _pbr = tx["net_pay"] if tx.get("tax_enabled") else gp
+            _red_amt = round(_pbr * _red_pct / 100, 2)
+            _par = round(_pbr - _red_amt, 2)
+            elements.append(Paragraph(f"CHECK REDUCTION ({_red_pct}%)", section_style))
+            _rd = [
+                ["Pay before reduction", _fmt_r(_pbr)],
+                [f"Reduction ({_red_pct}%)", f"\u2212{_fmt_r(_red_amt)}"],
+                ["FINAL PAY", _fmt_r(_par)],
+            ]
+            _rt = Table(_rd, colWidths=[320, 120])
+            _rt.setStyle(TableStyle([
+                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 0), (-1, -1), 9),
+                ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
+                ('TEXTCOLOR', (1, 1), (1, 1), colors.HexColor("#DC2626")),
+                ('TEXTCOLOR', (0, -1), (-1, -1), colors.HexColor("#92400E")),
+                ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor("#FEF3C7")),
+                ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+                ('LINEABOVE', (0, -1), (-1, -1), 0.5, colors.HexColor("#D1D5DB")),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ]))
+            elements.append(_rt)
 
         # Employer
         elements.append(Spacer(1, 6))
@@ -2252,15 +2329,146 @@ def install_payroll_v2(app_class):
         else:
             messagebox.showerror("SSH Key", "Failed to upload SSH key to Firebase.\nCheck your internet connection.")
 
+    # ── Feature: Unsaved changes popup ───────────────────────────────────
+    # Track clean state when Today page loads, warn on navigation if dirty
+
+    original_pg_today = app_class.pg_today
+
+    def patched_pg_today(self):
+        """Wrap pg_today to snapshot clean state after loading."""
+        original_pg_today(self)
+        # Snapshot the clean state right after loading
+        self._snapshot_hours_from_widgets()
+        self._snapshot_checked_from_widgets()
+        self._snapshot_tips_from_widgets()
+        self._clean_hours = list(self._hours_data)
+        self._clean_checked = set(self._checked_emp_ids)
+        self._clean_tips = dict(self._day_tips)
+        self._clean_tip_values = dict(getattr(self, '_tip_entry_values', {}))
+
+    def _has_unsaved_changes(self):
+        """Check if current Today page data differs from the clean snapshot."""
+        if not hasattr(self, '_clean_hours'):
+            return False
+        if self._screen != "Today":
+            return False
+        # Snapshot current widget state
+        self._snapshot_hours_from_widgets()
+        self._snapshot_checked_from_widgets()
+        self._snapshot_tips_from_widgets()
+        # Compare checked employees
+        if self._checked_emp_ids != self._clean_checked:
+            return True
+        # Compare hours data
+        if len(self._hours_data) != len(self._clean_hours):
+            return True
+        for cur, orig in zip(self._hours_data, self._clean_hours):
+            if (cur.get("emp_id") != orig.get("emp_id") or
+                cur.get("hours") != orig.get("hours") or
+                cur.get("position_name") != orig.get("position_name") or
+                cur.get("shift") != orig.get("shift") or
+                cur.get("points") != orig.get("points")):
+                return True
+        # Compare tip entry values
+        cur_tips = getattr(self, '_tip_entry_values', {})
+        if cur_tips != self._clean_tip_values:
+            return True
+        return False
+
+    def _confirm_discard(self):
+        """Show save/discard/cancel dialog. Returns True if user wants to proceed."""
+        result = messagebox.askyesnocancel(
+            "Unsaved Changes",
+            "You have unsaved changes. Do you want to save before leaving?",
+            icon="warning"
+        )
+        if result is True:
+            # Save
+            self._save_day()
+            return True
+        elif result is False:
+            # Discard
+            return True
+        else:
+            # Cancel — stay on page
+            return False
+
+    original_prev_day = app_class._prev_day
+    original_next_day = app_class._next_day
+
+    def patched_prev_day(self):
+        if _has_unsaved_changes(self):
+            if not _confirm_discard(self):
+                return
+        original_prev_day(self)
+
+    def patched_next_day(self):
+        if _has_unsaved_changes(self):
+            if not _confirm_discard(self):
+                return
+        original_next_day(self)
+
+    def patched_nav_click_with_save(self, lbl):
+        if _has_unsaved_changes(self):
+            if not _confirm_discard(self):
+                return
+        # Clear clean state so we don't re-trigger
+        self._clean_hours = []
+        self._clean_checked = set()
+        self._clean_tips = {}
+        self._clean_tip_values = {}
+        patched_nav_click(self, lbl)
+
+    def _on_close(self):
+        if _has_unsaved_changes(self):
+            if not _confirm_discard(self):
+                return
+        self.destroy()
+
+    # ── Feature: Auto-add standard wage employees with 0 hours ─────────
+
+    original_build_tab_employees = app_class._build_tab_employees
+
+    def patched_build_tab_employees(self):
+        """After building the employee tab, auto-check fixed-wage employees."""
+        original_build_tab_employees(self)
+        # Auto-check fixed-wage employees that aren't already checked
+        for emp in self.dm.employees:
+            eid = emp["id"]
+            if eid in self._checked_emp_ids:
+                continue
+            # Check if any of their positions has a fixed weekly wage
+            has_fixed = False
+            for pa in emp.get("positions", []):
+                pos_name = pa.get("position_name", "") if isinstance(pa, dict) else pa
+                pos = self.dm.pos_by_name(pos_name)
+                if pos:
+                    fwv = pos.get("fixed_weekly_wage")
+                    if fwv and safe_float(fwv) > 0:
+                        has_fixed = True
+                        break
+            if has_fixed:
+                # Check the checkbox if it exists
+                if hasattr(self, '_check_vars') and eid in self._check_vars:
+                    self._check_vars[eid].set(True)
+                    self._checked_emp_ids.add(eid)
+
     app_class._import_toast_csv = patched_import_toast_csv
     app_class._download_toast_sftp = patched_download_toast_sftp
     app_class._show_time_entry_preview_v2 = patched_show_preview
     app_class._upload_toast_ssh_key = patched_upload_ssh_key
 
     app_class._build_nav = patched_build_nav
-    app_class.nav_click = patched_nav_click
+    app_class.nav_click = patched_nav_click_with_save
     app_class._emp_dlg = patched_emp_dlg
     app_class._do_logout = patched_do_logout
+    app_class.pg_today = patched_pg_today
+    app_class._prev_day = patched_prev_day
+    app_class._next_day = patched_next_day
+    app_class._build_tab_employees = patched_build_tab_employees
+    app_class._has_unsaved_changes = _has_unsaved_changes
+    app_class._confirm_discard = _confirm_discard
+    app_class._on_close = _on_close
     app_class._payroll_v2_active = False
     app_class._logged_in_user = ""
     app_class._logged_in_display = ""
@@ -2296,6 +2504,9 @@ def _launch_app(email, display_name, role, uid="", restaurant_name=""):
     App._logged_in_restaurant = restaurant_name
 
     app = App()
+
+    # ── Unsaved changes: intercept window close ───────────────────────────
+    app.protocol("WM_DELETE_WINDOW", lambda: app._on_close())
 
     # ── Update window title with restaurant name ─────────────────────────
     app.title(f"Stamhad Payroll \u2014 {restaurant_name}")
