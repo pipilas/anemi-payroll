@@ -2330,100 +2330,108 @@ def install_payroll_v2(app_class):
             messagebox.showerror("SSH Key", "Failed to upload SSH key to Firebase.\nCheck your internet connection.")
 
     # ── Feature: Unsaved changes popup ───────────────────────────────────
-    # Track clean state when Today page loads, warn on navigation if dirty
+    # Simple dirty flag — set True on any edit, cleared on save or page load
 
     original_pg_today = app_class.pg_today
+    original_save_day = app_class._save_day
 
     def patched_pg_today(self):
-        """Wrap pg_today to snapshot clean state after loading."""
+        """Wrap pg_today to reset dirty flag on page load."""
         original_pg_today(self)
-        # Snapshot the clean state right after loading
-        self._snapshot_hours_from_widgets()
-        self._snapshot_checked_from_widgets()
-        self._snapshot_tips_from_widgets()
-        self._clean_hours = list(self._hours_data)
-        self._clean_checked = set(self._checked_emp_ids)
-        self._clean_tips = dict(self._day_tips)
-        self._clean_tip_values = dict(getattr(self, '_tip_entry_values', {}))
+        self._dirty = False
 
-    def _has_unsaved_changes(self):
-        """Check if current Today page data differs from the clean snapshot."""
-        if not hasattr(self, '_clean_hours'):
-            return False
+    def patched_save_day(self):
+        """Wrap _save_day to clear dirty flag after saving."""
+        original_save_day(self)
+        self._dirty = False
+
+    def _mark_dirty(self):
+        self._dirty = True
+
+    def _check_unsaved(self):
+        """If dirty, ask save/discard/cancel. Returns True to proceed, False to stay."""
         if self._screen != "Today":
-            return False
-        # Snapshot current widget state
-        self._snapshot_hours_from_widgets()
-        self._snapshot_checked_from_widgets()
-        self._snapshot_tips_from_widgets()
-        # Compare checked employees
-        if self._checked_emp_ids != self._clean_checked:
             return True
-        # Compare hours data
-        if len(self._hours_data) != len(self._clean_hours):
+        if not getattr(self, '_dirty', False):
             return True
-        for cur, orig in zip(self._hours_data, self._clean_hours):
-            if (cur.get("emp_id") != orig.get("emp_id") or
-                cur.get("hours") != orig.get("hours") or
-                cur.get("position_name") != orig.get("position_name") or
-                cur.get("shift") != orig.get("shift") or
-                cur.get("points") != orig.get("points")):
-                return True
-        # Compare tip entry values
-        cur_tips = getattr(self, '_tip_entry_values', {})
-        if cur_tips != self._clean_tip_values:
-            return True
-        return False
-
-    def _confirm_discard(self):
-        """Show save/discard/cancel dialog. Returns True if user wants to proceed."""
         result = messagebox.askyesnocancel(
             "Unsaved Changes",
             "You have unsaved changes. Do you want to save before leaving?",
             icon="warning"
         )
         if result is True:
-            # Save
             self._save_day()
             return True
         elif result is False:
-            # Discard
             return True
         else:
-            # Cancel — stay on page
             return False
 
     original_prev_day = app_class._prev_day
     original_next_day = app_class._next_day
 
     def patched_prev_day(self):
-        if _has_unsaved_changes(self):
-            if not _confirm_discard(self):
-                return
+        if not _check_unsaved(self):
+            return
         original_prev_day(self)
 
     def patched_next_day(self):
-        if _has_unsaved_changes(self):
-            if not _confirm_discard(self):
-                return
+        if not _check_unsaved(self):
+            return
         original_next_day(self)
 
     def patched_nav_click_with_save(self, lbl):
-        if _has_unsaved_changes(self):
-            if not _confirm_discard(self):
-                return
-        # Clear clean state so we don't re-trigger
-        self._clean_hours = []
-        self._clean_checked = set()
-        self._clean_tips = {}
-        self._clean_tip_values = {}
+        if not _check_unsaved(self):
+            return
+        self._dirty = False
         patched_nav_click(self, lbl)
 
     def _on_close(self):
-        if _has_unsaved_changes(self):
-            if not _confirm_discard(self):
-                return
+        if not _check_unsaved(self):
+            return
         self.destroy()
+
+    # ── Hook _on_emp_check and _toggle_all to mark dirty ────────────────
+
+    original_on_emp_check = app_class._on_emp_check
+    original_toggle_all = app_class._toggle_all
+
+    def patched_on_emp_check(self, var, emp):
+        original_on_emp_check(self, var, emp)
+        self._dirty = True
+
+    def patched_toggle_all(self, val):
+        original_toggle_all(self, val)
+        self._dirty = True
+
+    # ── Hook _build_tab_hours to trace entry changes ─────────────────────
+
+    original_build_tab_hours = app_class._build_tab_hours
+
+    def patched_build_tab_hours(self):
+        original_build_tab_hours(self)
+        # Add trace to all hours entry widgets to mark dirty
+        if hasattr(self, '_hours_widgets'):
+            for hw in self._hours_widgets:
+                try:
+                    hw["hours_entry"].bind("<KeyRelease>", lambda e: _mark_dirty(self))
+                    hw["points_entry"].bind("<KeyRelease>", lambda e: _mark_dirty(self))
+                except Exception:
+                    pass
+
+    # ── Hook _build_tab_tips to trace tip entry changes ──────────────────
+
+    original_build_tab_tips = app_class._build_tab_tips
+
+    def patched_build_tab_tips(self):
+        original_build_tab_tips(self)
+        if hasattr(self, '_shift_tip_entries'):
+            for shift, entries in self._shift_tip_entries.items():
+                try:
+                    entries["floor"].bind("<KeyRelease>", lambda e: _mark_dirty(self))
+                    entries["bar"].bind("<KeyRelease>", lambda e: _mark_dirty(self))
+                except Exception:
+                    pass
 
     # ── Feature: Auto-add standard wage employees with 0 hours ─────────
 
@@ -2463,12 +2471,18 @@ def install_payroll_v2(app_class):
     app_class._emp_dlg = patched_emp_dlg
     app_class._do_logout = patched_do_logout
     app_class.pg_today = patched_pg_today
+    app_class._save_day = patched_save_day
     app_class._prev_day = patched_prev_day
     app_class._next_day = patched_next_day
+    app_class._on_emp_check = patched_on_emp_check
+    app_class._toggle_all = patched_toggle_all
+    app_class._build_tab_hours = patched_build_tab_hours
+    app_class._build_tab_tips = patched_build_tab_tips
     app_class._build_tab_employees = patched_build_tab_employees
-    app_class._has_unsaved_changes = _has_unsaved_changes
-    app_class._confirm_discard = _confirm_discard
+    app_class._mark_dirty = _mark_dirty
+    app_class._check_unsaved = _check_unsaved
     app_class._on_close = _on_close
+    app_class._dirty = False
     app_class._payroll_v2_active = False
     app_class._logged_in_user = ""
     app_class._logged_in_display = ""
