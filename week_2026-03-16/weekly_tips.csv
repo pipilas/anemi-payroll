@@ -1,0 +1,13 @@
+day,shift,emp_id,employee_name,position,points,floor_tip,bar_tip,total_tip
+Wednesday,Morning,PAP8C6,Juan El Boliviano,Server (Morning),10.0,0.0,0.0,0.0
+Wednesday,Dinner,EL8CBV,Julia Yan,Bartender,5.0,0.0,0,0.0
+Wednesday,Dinner,W7Q0K3,Froso Pavlidou,Server,10.0,0.0,0.0,0.0
+Wednesday,Dinner,5J29Y7,Kenny Olivares,Busser,5.0,0.0,0.0,0.0
+Wednesday,Dinner,4XCRHC,BAR BAR,SYSTEM,0.0,0.0,0.0,0.0
+Tuesday,Morning,W7Q0K3,Froso Pavlidou,Server (Morning),10.0,35.95,0.0,35.95
+Tuesday,Dinner,R98K4X,Theofilos Adalis,Server,10.0,216.62,0.0,216.62
+Tuesday,Dinner,LZCJQO,Mainor Lopez,Busser,0.0,0.0,0.0,0.0
+Tuesday,Dinner,NJFTLF,Higinio Nazario,Bartender,5.0,108.31,4.88,113.19
+Tuesday,Dinner,4XCRHC,BAR BAR,SYSTEM,0.0,0.0,0.0,0.0
+Friday,Dinner,__shift_total__,,,0,1090.42,288.79,1379.21
+Friday,Morning,__shift_total__,,,0,35.16,0.0,35.16

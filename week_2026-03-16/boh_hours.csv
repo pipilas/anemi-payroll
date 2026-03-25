@@ -1,0 +1,19 @@
+day,emp_id,employee_name,position,shift,hours,points
+Monday,D6B0K8,Silvia Garcia,Kitchen $18,Morning,5.53,
+Monday,3H0PVS,Abdin Romeo Tzaj Telon,Kitchen $24,Dinner,6.63,
+Monday,B4J655,Isael Beltran,Kitchen $24,Dinner,6.59,
+Monday,KNS9HP,Maria Castro,Kitchen $18,Dinner,6.53,
+Monday,1ILWCI,Eleazir Quino,Dishwasher,Dinner,7.59,
+Wednesday,7B29KU,Elvira Espinovaros,Kitchen $18,Dinner,6.79,
+Wednesday,B4J655,Isael Beltran,Kitchen $24,Morning,6.53,
+Wednesday,CVC0AI,Luis Soc,Dishwasher,Dinner,6.8,
+Tuesday,7B29KU,Elvira Espinovaros,Kitchen $18,Dinner,6.44,0.0
+Tuesday,D6B0K8,Silvia Garcia,Kitchen $18,Morning,4.99,0.0
+Tuesday,KNS9HP,Maria Castro,Kitchen $18,Dinner,6.38,0.0
+Tuesday,1ILWCI,Eleazir Quino,Dishwasher,Dinner,7.91,0.0
+Sunday,D6B0K8,Silvia Garcia,Kitchen $18,Morning,5.52,0.0
+Sunday,3H0PVS,Abdin Romeo Tzaj Telon,Kitchen $24,Dinner,5.32,0.0
+Sunday,B4J655,Isael Beltran,Kitchen $24,Dinner,5.33,0.0
+Sunday,KNS9HP,Maria Castro,Kitchen $18,Dinner,5.3,0.0
+Sunday,CVC0AI,Luis Soc,Dishwasher,Dinner,6.12,0.0
+Sunday,6IBKB5,Gerson Gomez,Cleaner,Morning,6.57,0.0

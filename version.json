@@ -1,10 +1,10 @@
 {
-  "latest_version": "1.4.11",
+  "latest_version": "1.4.12",
   "minimum_version": "1.0.0",
-  "release_date": "2026-03-23",
-  "download_url_windows": "https://github.com/pipilas/anemi-payroll/releases/download/v1.4.11/StamhadPayroll.exe",
-  "download_url_mac": "https://github.com/pipilas/anemi-payroll/releases/download/v1.4.11/StamhadPayroll-1.4.11-mac.dmg",
-  "release_notes": "- New: Unsaved changes popup on all navigation (save/discard/cancel)\n- New: % deduction shown on PDF payslip and all-employees report\n- New: Fixed-wage employees auto-added to daily roster\n- Fix: Missing os import for Windows builds\n- Fix: Session persists across app updates",
+  "release_date": "2026-03-24",
+  "download_url_windows": "https://github.com/pipilas/anemi-payroll/releases/download/v1.4.12/StamhadPayroll.exe",
+  "download_url_mac": "https://github.com/pipilas/anemi-payroll/releases/download/v1.4.12/StamhadPayroll-1.4.12-mac.dmg",
+  "release_notes": "- Fix: Unsaved changes popup no longer breaks employee saving\n- Fix: Fixed-wage employees (Manager, Chef, Head Chef) auto-added at payroll generation instead of daily roster",
   "mandatory": false,
   "checksum_sha256": ""
 }

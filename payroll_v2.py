@@ -2433,33 +2433,47 @@ def install_payroll_v2(app_class):
                 except Exception:
                     pass
 
-    # ── Feature: Auto-add standard wage employees with 0 hours ─────────
+    # ── Feature: Auto-add fixed-wage employees to weekly payroll ────────
+    # Fixed-wage employees (Manager, Head Chef, Chef) get their weekly pay
+    # even if they have no daily hours logged. Patch gen_payroll on DataManager.
 
-    original_build_tab_employees = app_class._build_tab_employees
+    from payroll_app import DataManager as _DM
+    _original_gen_payroll = _DM.gen_payroll
 
-    def patched_build_tab_employees(self):
-        """After building the employee tab, auto-check fixed-wage employees."""
-        original_build_tab_employees(self)
-        # Auto-check fixed-wage employees that aren't already checked
-        for emp in self.dm.employees:
+    def _patched_gen_payroll(dm_self, mon):
+        payroll = _original_gen_payroll(dm_self, mon)
+        existing_eids = {pr["emp_id"] for pr in payroll}
+
+        for emp in dm_self.employees:
             eid = emp["id"]
-            if eid in self._checked_emp_ids:
+            if eid in existing_eids:
                 continue
-            # Check if any of their positions has a fixed weekly wage
-            has_fixed = False
             for pa in emp.get("positions", []):
                 pos_name = pa.get("position_name", "") if isinstance(pa, dict) else pa
-                pos = self.dm.pos_by_name(pos_name)
+                pos = dm_self.pos_by_name(pos_name)
                 if pos:
                     fwv = pos.get("fixed_weekly_wage")
                     if fwv and safe_float(fwv) > 0:
-                        has_fixed = True
+                        dept = pos.get("department", "FOH")
+                        payroll.append({
+                            "emp_id": eid,
+                            "employee_name": emp["name"],
+                            "positions": pos_name,
+                            "department": dept,
+                            "regular_hours": 0,
+                            "overtime_hours": 0,
+                            "hourly_rate": 0,
+                            "regular_wages": round(safe_float(fwv), 2),
+                            "overtime_wages": 0,
+                            "total_tips": 0,
+                            "total_compensation": round(safe_float(fwv), 2),
+                            "wage_note": f"{pos_name} fixed ${safe_float(fwv):.0f}/wk",
+                        })
                         break
-            if has_fixed:
-                # Check the checkbox if it exists
-                if hasattr(self, '_check_vars') and eid in self._check_vars:
-                    self._check_vars[eid].set(True)
-                    self._checked_emp_ids.add(eid)
+        payroll.sort(key=lambda r: (r["department"], r["employee_name"]))
+        return payroll
+
+    _DM.gen_payroll = _patched_gen_payroll
 
     app_class._import_toast_csv = patched_import_toast_csv
     app_class._download_toast_sftp = patched_download_toast_sftp
@@ -2478,7 +2492,6 @@ def install_payroll_v2(app_class):
     app_class._toggle_all = patched_toggle_all
     app_class._build_tab_hours = patched_build_tab_hours
     app_class._build_tab_tips = patched_build_tab_tips
-    app_class._build_tab_employees = patched_build_tab_employees
     app_class._mark_dirty = _mark_dirty
     app_class._check_unsaved = _check_unsaved
     app_class._on_close = _on_close
