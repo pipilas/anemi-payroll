@@ -23,6 +23,7 @@ Local session file: config/session.json  (stores refresh token for auto-login)
 """
 
 import json
+import os
 import urllib.request
 import urllib.error
 from pathlib import Path
