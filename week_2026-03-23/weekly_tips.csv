@@ -1,0 +1,17 @@
+day,shift,emp_id,employee_name,position,points,floor_tip,bar_tip,total_tip
+Wednesday,Dinner,ZAERJN,Haris Nioulikos,Bartender,5.0,214.04,210.0,424.04
+Wednesday,Dinner,A5DX1P,Kostas Stamkopoulos,Bartender,5.0,214.04,210.0,424.04
+Wednesday,Dinner,MT6RTB,Aikaterini Kapandriti,Server,10.0,428.08,0.0,428.08
+Wednesday,Dinner,R98K4X,Theofilos Adalis,Server,10.0,428.08,0.0,428.08
+Wednesday,Dinner,W7Q0K3,Froso Pavlidou,Server,10.0,428.08,0.0,428.08
+Wednesday,Dinner,U3PZQC,Marianna Kapandriti,Server,10.0,428.08,0.0,428.08
+Wednesday,Dinner,DHF3MJ,Daniel Vichis,Runner,7.0,299.65,0.0,299.65
+Wednesday,Dinner,PAP8C6,Juan El Boliviano,Runner,7.0,299.65,0.0,299.65
+Wednesday,Dinner,LZCJQO,Mainor Lopez,Busser,5.0,214.04,0.0,214.04
+Wednesday,Dinner,SDORXK,Christian Rivera,Busser,5.0,214.04,0.0,214.04
+Wednesday,Dinner,5J29Y7,Kenny Olivares,Busser,5.0,214.04,0.0,214.04
+Wednesday,Dinner,NJFTLF,Higinio Nazario,Barback,2.5,107.02,140.0,247.02
+Wednesday,Dinner,DWQZQ3,Myrto Hatzikyriakou,Host,0.0,0.0,0.0,0.0
+Wednesday,Dinner,R9MU1L,Sevasti Panopoulos,Host,0.0,0.0,0.0,0.0
+Wednesday,Dinner,9HJXR7,Theo Nioulikos,Barback,2.5,107.02,140.0,247.02
+Wednesday,Morning,PAP8C6,Juan El Boliviano,Server (Morning),10.0,0.0,0.0,0.0

@@ -2419,9 +2419,10 @@ def install_payroll_v2(app_class):
                 except Exception:
                     pass
 
-    # ── Hook _build_tab_tips to trace tip entry changes ──────────────────
+    # ── Hook _build_tab_tips to add editable Barback % per shift ─────────
 
     original_build_tab_tips = app_class._build_tab_tips
+    original_calc_tips = app_class._calc_tips
 
     def patched_build_tab_tips(self):
         original_build_tab_tips(self)
@@ -2432,6 +2433,74 @@ def install_payroll_v2(app_class):
                     entries["bar"].bind("<KeyRelease>", lambda e: _mark_dirty(self))
                 except Exception:
                     pass
+
+            # Add editable "Barback %" field per shift
+            # Find the default barback pct from positions
+            default_bb_pct = 0
+            for pos in self.dm.positions:
+                bsp = safe_float(pos.get("bar_tip_share_pct", 0))
+                if bsp > 0:
+                    default_bb_pct = bsp
+                    break
+
+            if not hasattr(self, '_shift_bar_pct_entries'):
+                self._shift_bar_pct_entries = {}
+
+            for shift, entries in self._shift_tip_entries.items():
+                try:
+                    bar_widget = entries["bar"]
+                    parent = bar_widget.master  # the Card (inp_card)
+
+                    # First, move the Calculate button from row 2 to row 3
+                    for child in parent.winfo_children():
+                        info = child.grid_info()
+                        if info and str(info.get("row")) == "2":
+                            child.grid_configure(row=3)
+
+                    # Now add the Barback % field at row 2
+                    tk.Label(parent, text="Barback %", bg=BG_CARD, fg=FG,
+                             font=(FONT, 12)).grid(row=2, column=0, padx=8, pady=6, sticky="w")
+                    pct_entry = Inp(parent, width=6)
+                    pct_entry.grid(row=2, column=1, padx=8, pady=6, sticky="w")
+                    pct_entry.insert(0, str(int(default_bb_pct) if default_bb_pct == int(default_bb_pct) else default_bb_pct))
+                    pct_entry.bind("<KeyRelease>", lambda e: _mark_dirty(self))
+
+                    self._shift_bar_pct_entries[shift] = pct_entry
+                except Exception:
+                    pass
+
+    def patched_calc_tips(self, shift):
+        """Override _calc_tips to use daily barback % override."""
+        # Read the override percentage if available
+        bar_pct_override = None
+        if hasattr(self, '_shift_bar_pct_entries'):
+            pct_widget = self._shift_bar_pct_entries.get(shift)
+            if pct_widget:
+                try:
+                    bar_pct_override = safe_float(pct_widget.get())
+                except Exception:
+                    bar_pct_override = None
+
+        # If no override, just run original
+        if bar_pct_override is None:
+            original_calc_tips(self, shift)
+            return
+
+        # Otherwise, temporarily patch positions to use the override pct
+        # Save originals, apply override, run calc, restore
+        patched_positions = []
+        for pos in self.dm.positions:
+            orig_pct = pos.get("bar_tip_share_pct", 0)
+            if safe_float(orig_pct) > 0:
+                patched_positions.append((pos, orig_pct))
+                pos["bar_tip_share_pct"] = bar_pct_override
+
+        try:
+            original_calc_tips(self, shift)
+        finally:
+            # Restore original percentages
+            for pos, orig_pct in patched_positions:
+                pos["bar_tip_share_pct"] = orig_pct
 
     # ── Feature: Auto-add fixed-wage employees to weekly payroll ────────
     # Fixed-wage employees (Manager, Head Chef, Chef) get their weekly pay
@@ -2492,6 +2561,7 @@ def install_payroll_v2(app_class):
     app_class._toggle_all = patched_toggle_all
     app_class._build_tab_hours = patched_build_tab_hours
     app_class._build_tab_tips = patched_build_tab_tips
+    app_class._calc_tips = patched_calc_tips
     app_class._mark_dirty = _mark_dirty
     app_class._check_unsaved = _check_unsaved
     app_class._on_close = _on_close

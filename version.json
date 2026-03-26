@@ -1,10 +1,10 @@
 {
-  "latest_version": "1.4.12",
+  "latest_version": "1.4.13",
   "minimum_version": "1.0.0",
-  "release_date": "2026-03-24",
-  "download_url_windows": "https://github.com/pipilas/anemi-payroll/releases/download/v1.4.12/StamhadPayroll.exe",
-  "download_url_mac": "https://github.com/pipilas/anemi-payroll/releases/download/v1.4.12/StamhadPayroll-1.4.12-mac.dmg",
-  "release_notes": "- Fix: Unsaved changes popup no longer breaks employee saving\n- Fix: Fixed-wage employees (Manager, Chef, Head Chef) auto-added at payroll generation instead of daily roster",
+  "release_date": "2026-03-26",
+  "download_url_windows": "https://github.com/pipilas/anemi-payroll/releases/download/v1.4.13/StamhadPayroll.exe",
+  "download_url_mac": "https://github.com/pipilas/anemi-payroll/releases/download/v1.4.13/StamhadPayroll-1.4.13-mac.dmg",
+  "release_notes": "- New: Editable Barback % per shift on Tips tab (override default for the day)",
   "mandatory": false,
   "checksum_sha256": ""
 }
