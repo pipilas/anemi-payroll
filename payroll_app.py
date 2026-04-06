@@ -46,6 +46,7 @@ CONFIG_DIR   = BASE_DIR / "config"
 EMP_FILE     = CONFIG_DIR / "employees.json"
 POS_FILE     = CONFIG_DIR / "positions.json"
 LOCK_FILE    = CONFIG_DIR / "locked_weeks.json"
+UNLOCK_FILE  = CONFIG_DIR / "manually_unlocked.json"
 
 DAYS   = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 SHIFTS = ["Morning", "Brunch", "Dinner"]
@@ -403,6 +404,7 @@ class DataManager:
         self.positions = self._load_positions()
         self.employees = self._load_employees()
         self._locked_weeks = self._load_locked_weeks()
+        self._manually_unlocked = self._load_manually_unlocked()
 
         # ── One-time migration: upload local data to Firebase ──────────────
         if self.fb:
@@ -609,32 +611,74 @@ class DataManager:
         return set(local)
 
     def _save_locked_weeks(self):
-        """Persist locked weeks to Firebase + local cache."""
+        """Persist locked weeks + manually unlocked to Firebase + local cache."""
         data = list(self._locked_weeks)
+        unlock_data = list(self._manually_unlocked)
         # Firebase
         if self.fb:
             try:
                 self.fb._put("locked_weeks", data)
+                self.fb._put("manually_unlocked", unlock_data)
             except Exception as e:
                 print(f"[DataManager] Firebase save locked_weeks failed: {e}")
         # Local
         self._save_local(LOCK_FILE, data)
+        self._save_local(UNLOCK_FILE, unlock_data)
+
+    def _load_manually_unlocked(self):
+        """Load the set of manually unlocked week keys."""
+        if self.fb:
+            try:
+                data = self.fb._get("manually_unlocked")
+                if data is not None:
+                    if isinstance(data, list):
+                        result = set(data)
+                    elif isinstance(data, dict):
+                        result = set(data.values())
+                    else:
+                        result = set()
+                    self._save_local(UNLOCK_FILE, list(result))
+                    return result
+            except Exception as e:
+                print(f"[DataManager] Firebase load manually_unlocked failed: {e}")
+        local = self._load_json(UNLOCK_FILE, [])
+        return set(local)
 
     def is_week_locked(self, mon):
-        """Check if a week (by its Monday date) is locked/finalised."""
+        """
+        A week is locked if:
+        1. It was manually finalised (in _locked_weeks), OR
+        2. It is older than 2 weeks (auto-lock) AND has NOT been manually unlocked.
+        Current week and last week are always editable unless manually locked.
+        """
         key = mon.isoformat() if hasattr(mon, 'isoformat') else str(mon)
-        return key in self._locked_weeks
+        # Manually locked always wins
+        if key in self._locked_weeks:
+            return True
+        # Auto-lock: weeks older than 1 full week ago
+        try:
+            mon_date = date.fromisoformat(key) if isinstance(mon, str) else mon
+            current_monday = monday_of(date.today())
+            last_monday = current_monday - timedelta(days=7)
+            if mon_date < last_monday:
+                # Auto-locked UNLESS manually unlocked
+                return key not in self._manually_unlocked
+        except (ValueError, TypeError):
+            pass
+        return False
 
     def lock_week(self, mon):
         """Lock/finalise a week so no changes can be made."""
         key = mon.isoformat() if hasattr(mon, 'isoformat') else str(mon)
         self._locked_weeks.add(key)
+        self._manually_unlocked.discard(key)
         self._save_locked_weeks()
 
     def unlock_week(self, mon):
-        """Unlock a previously finalised week."""
+        """Manually unlock a week (overrides auto-lock too)."""
         key = mon.isoformat() if hasattr(mon, 'isoformat') else str(mon)
         self._locked_weeks.discard(key)
+        self._manually_unlocked.add(key)
         self._save_locked_weeks()
 
     def get_unlocked_week_folders(self):
@@ -1925,11 +1969,15 @@ class App(tk.Tk):
 
         # ── Show lock banner if this week is finalised ────────────────────
         if self.dm.is_week_locked(self.cur_mon):
+            mon_key = self.cur_mon.isoformat()
+            is_manual = mon_key in self.dm._locked_weeks
+            lock_msg = ("\U0001F512  This week is FINALISED — saving is disabled"
+                        if is_manual else
+                        "\U0001F512  This week is AUTO-LOCKED (older than 2 weeks) — saving is disabled")
             lock_banner = tk.Frame(content, bg=LOCK_BG, highlightbackground=LOCK_BD,
                                     highlightthickness=1)
             lock_banner.pack(fill="x", padx=16, pady=(8, 0))
-            tk.Label(lock_banner,
-                     text="\U0001F512  This week is FINALISED — saving is disabled",
+            tk.Label(lock_banner, text=lock_msg,
                      bg=LOCK_BG, fg=LOCK_FG, font=(FONT, 11, "bold"),
                      padx=12, pady=8).pack(side="left")
 
@@ -3107,11 +3155,16 @@ class App(tk.Tk):
 
         # ── Lock status banner ─────────────────────────────────────────────
         is_locked = self.dm.is_week_locked(mon)
+        mon_key = mon.isoformat()
+        is_manual_lock = mon_key in self.dm._locked_weeks
         if is_locked:
+            lock_msg = ("\U0001F512  This week is FINALISED — no changes allowed"
+                        if is_manual_lock else
+                        "\U0001F512  This week is AUTO-LOCKED (older than 2 weeks) — no changes allowed")
             lock_banner = tk.Frame(scroll, bg=LOCK_BG, highlightbackground=LOCK_BD,
                                     highlightthickness=1)
             lock_banner.pack(fill="x", padx=24, pady=(0, 6))
-            tk.Label(lock_banner, text="\U0001F512  This week is FINALISED — no changes allowed",
+            tk.Label(lock_banner, text=lock_msg,
                      bg=LOCK_BG, fg=LOCK_FG, font=(FONT, 12, "bold"),
                      padx=12, pady=8).pack(side="left")
             Btn(lock_banner, text="\U0001F513  Unlock Week", style="danger",
