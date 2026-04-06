@@ -1,4 +1,9 @@
 day,emp_id,employee_name,position,shift,hours,points
+Tuesday,R98K4X,Theofilos Adalis,Server,Dinner,5.98,10.0
+Tuesday,W7Q0K3,Froso Pavlidou,Server (Morning),Morning,3.05,10.0
+Tuesday,LZCJQO,Mainor Lopez,Runner,Dinner,6.04,7.0
+Tuesday,NJFTLF,Higinio Nazario,Bartender,Dinner,6.61,5.0
+Tuesday,4XCRHC,BAR BAR,SYSTEM,Dinner,0.07,0.0
 Wednesday,ZAERJN,Haris Nioulikos,Bartender,Dinner,10.64,5.0
 Wednesday,A5DX1P,Kostas Stamkopoulos,Bartender,Dinner,9.04,5.0
 Wednesday,MT6RTB,Aikaterini Kapandriti,Server,Dinner,9.71,10.0
