@@ -37,6 +37,7 @@ BASE_DIR     = Path(__file__).parent
 CONFIG_DIR   = BASE_DIR / "config"
 EMP_FILE     = CONFIG_DIR / "employees.json"
 POS_FILE     = CONFIG_DIR / "positions.json"
+LOCK_FILE    = CONFIG_DIR / "locked_weeks.json"
 
 DAYS   = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 SHIFTS = ["Morning", "Brunch", "Dinner"]
@@ -83,6 +84,11 @@ CANCEL_FG = "#374151"
 CANCEL_BD = "#D1D5DB"
 CANCEL_HV = "#E5E7EB"
 TOTAL_LABOR_BG = "#F0F9FF"
+LOCK_BG    = "#FEF2F2"
+LOCK_FG    = "#991B1B"
+LOCK_BD    = "#EF4444"
+UNLOCK_BG  = "#F0FDF4"
+UNLOCK_FG  = "#166534"
 
 FOH_BG    = "#3B82F6"
 FOH_FG    = "#FFFFFF"
@@ -345,6 +351,7 @@ class DataManager:
         # ── Load data: try Firebase first, fall back to local ──────────────
         self.positions = self._load_positions()
         self.employees = self._load_employees()
+        self._locked_weeks = self._load_locked_weeks()
 
         # ── One-time migration: upload local data to Firebase ──────────────
         if self.fb:
@@ -439,6 +446,149 @@ class DataManager:
                 json.dump(self.employees, f, indent=2)
         except Exception as e:
             print(f"[ERROR] Failed to save employees: {e}")
+
+    # ── Week lock / finalise ─────────────────────────────────────────────
+    def _load_locked_weeks(self):
+        """Load the set of locked week keys (YYYY-MM-DD Monday strings)."""
+        # Try Firebase first
+        if self.fb:
+            try:
+                data = self.fb._get("locked_weeks")
+                if data is not None:
+                    if isinstance(data, list):
+                        result = set(data)
+                    elif isinstance(data, dict):
+                        result = set(data.values())
+                    else:
+                        result = set()
+                    # Cache locally
+                    self._save_local(LOCK_FILE, list(result))
+                    return result
+            except Exception as e:
+                print(f"[DataManager] Firebase load locked_weeks failed: {e}")
+        # Fall back to local
+        local = self._load_json(LOCK_FILE, [])
+        return set(local)
+
+    def _save_locked_weeks(self):
+        """Persist locked weeks to Firebase + local cache."""
+        data = list(self._locked_weeks)
+        # Firebase
+        if self.fb:
+            try:
+                self.fb._put("locked_weeks", data)
+            except Exception as e:
+                print(f"[DataManager] Firebase save locked_weeks failed: {e}")
+        # Local
+        self._save_local(LOCK_FILE, data)
+
+    def is_week_locked(self, mon):
+        """Check if a week (by its Monday date) is locked/finalised."""
+        key = mon.isoformat() if hasattr(mon, 'isoformat') else str(mon)
+        return key in self._locked_weeks
+
+    def lock_week(self, mon):
+        """Lock/finalise a week so no changes can be made."""
+        key = mon.isoformat() if hasattr(mon, 'isoformat') else str(mon)
+        self._locked_weeks.add(key)
+        self._save_locked_weeks()
+
+    def unlock_week(self, mon):
+        """Unlock a previously finalised week."""
+        key = mon.isoformat() if hasattr(mon, 'isoformat') else str(mon)
+        self._locked_weeks.discard(key)
+        self._save_locked_weeks()
+
+    def get_unlocked_week_folders(self):
+        """Return list of (monday_date, folder_path) for all unlocked week folders."""
+        unlocked = []
+        for d in BASE_DIR.iterdir():
+            if d.is_dir() and d.name.startswith("week_"):
+                try:
+                    mon_str = d.name[5:]  # strip 'week_'
+                    mon = date.fromisoformat(mon_str)
+                    if not self.is_week_locked(mon):
+                        unlocked.append((mon, d))
+                except (ValueError, IndexError):
+                    pass
+        return unlocked
+
+    # ── Position rename propagation ──────────────────────────────────────
+    def rename_position_everywhere(self, old_name, new_name):
+        """
+        When a position is renamed, update it everywhere:
+        1. All employees who have the old position name
+        2. All unlocked weeks' CSV data (hours + tips) — both local & Firebase
+        """
+        # 1. Update employees
+        changed_emps = 0
+        for emp in self.employees:
+            for p in emp.get("positions", []):
+                if p.get("position_name") == old_name:
+                    p["position_name"] = new_name
+                    changed_emps += 1
+        if changed_emps:
+            self.save_emp()
+            print(f"[Rename] Updated position '{old_name}' → '{new_name}' "
+                  f"in {changed_emps} employee(s)")
+
+        # 2. Update all unlocked week CSVs (local files + Firebase)
+        updated_weeks = 0
+        for mon_date, folder in self.get_unlocked_week_folders():
+            week_modified = False
+
+            for csv_name in ["foh_hours.csv", "boh_hours.csv"]:
+                csv_path = folder / csv_name
+                if csv_path.exists():
+                    rows = self.read_csv(csv_path)
+                    modified = False
+                    for r in rows:
+                        if r.get("position") == old_name:
+                            r["position"] = new_name
+                            modified = True
+                    if modified:
+                        flds = list(rows[0].keys()) if rows else []
+                        if flds:
+                            self.write_csv(csv_path, flds, rows)
+                        week_modified = True
+
+            tips_path = folder / "weekly_tips.csv"
+            if tips_path.exists():
+                rows = self.read_csv(tips_path)
+                modified = False
+                for r in rows:
+                    if r.get("position") == old_name:
+                        r["position"] = new_name
+                        modified = True
+                if modified:
+                    flds = list(rows[0].keys()) if rows else []
+                    if flds:
+                        self.write_csv(tips_path, flds, rows)
+                    week_modified = True
+
+            # Sync updated week to Firebase
+            if week_modified:
+                updated_weeks += 1
+                if self.fb:
+                    for day_name in DAYS:
+                        try:
+                            foh = [r for r in self.read_csv(folder / "foh_hours.csv")
+                                   if r.get("day") == day_name]
+                            boh = [r for r in self.read_csv(folder / "boh_hours.csv")
+                                   if r.get("day") == day_name]
+                            tips = [r for r in self.read_csv(folder / "weekly_tips.csv")
+                                    if r.get("day") == day_name]
+                            if foh or boh or tips:
+                                if not self.fb.save_week_day(
+                                        mon_date.isoformat(), day_name, foh, boh, tips):
+                                    self._mark_day_dirty(mon_date, day_name)
+                        except Exception as e:
+                            print(f"[Rename] Firebase sync failed for "
+                                  f"{day_name} ({mon_date}): {e}")
+                            self._mark_day_dirty(mon_date, day_name)
+
+        print(f"[Rename] Updated {updated_weeks} unlocked week(s) for "
+              f"'{old_name}' → '{new_name}'")
 
     # ── Background sync (offline → online recovery) ─────────────────────
     def _mark_day_dirty(self, mon, day_name):
@@ -603,6 +753,8 @@ class DataManager:
 
     # ── Save day ──────────────────────────────────────────────────────────
     def save_day(self, mon, day_name, blocks, tips):
+        if self.is_week_locked(mon):
+            raise PermissionError(f"Week of {mon} is finalised and cannot be modified.")
         folder = self.ensure_wk(mon)
 
         foh_f = ["day", "emp_id", "employee_name", "position", "shift", "hours"]
@@ -1169,6 +1321,9 @@ class App(tk.Tk):
                 return
 
             is_edit = pos is not None
+            old_name = pos.get("name", "") if is_edit else ""
+            name_changed = is_edit and old_name != nm
+
             if is_edit:
                 old_wage = safe_float(pos.get("hourly_wage", 0))
                 new_wage = safe_float(fields["hourly_wage"].get())
@@ -1177,6 +1332,14 @@ class App(tk.Tk):
                             "Updating this wage will affect all employees in this position. Continue?",
                             parent=win):
                         return
+
+            if name_changed:
+                if not messagebox.askyesno("Confirm Rename",
+                        f'Rename "{old_name}" to "{nm}"?\n\n'
+                        "This will update the position name for all employees\n"
+                        "and all unlocked week data (hours, tips).",
+                        parent=win):
+                    return
 
             data = {
                 "name": nm, "department": dp,
@@ -1193,6 +1356,11 @@ class App(tk.Tk):
             else:
                 self.dm.positions.append(data)
             self.dm.save_pos()
+
+            # ── Propagate position rename across employees and week data ───
+            if name_changed:
+                self.dm.rename_position_everywhere(old_name, nm)
+
             win.destroy()
             self._clr()
             self.pg_pos()
@@ -1425,6 +1593,16 @@ class App(tk.Tk):
 
         content = tk.Frame(self.main, bg=BG_PAGE)
         content.pack(fill="both", expand=True)
+
+        # ── Show lock banner if this week is finalised ────────────────────
+        if self.dm.is_week_locked(self.cur_mon):
+            lock_banner = tk.Frame(content, bg=LOCK_BG, highlightbackground=LOCK_BD,
+                                    highlightthickness=1)
+            lock_banner.pack(fill="x", padx=16, pady=(8, 0))
+            tk.Label(lock_banner,
+                     text="\U0001F512  This week is FINALISED — saving is disabled",
+                     bg=LOCK_BG, fg=LOCK_FG, font=(FONT, 11, "bold"),
+                     padx=12, pady=8).pack(side="left")
 
         if self._has_saved:
             banner = tk.Frame(content, bg=WARN_BG, highlightbackground=WARN_BORD,
@@ -1976,6 +2154,10 @@ class App(tk.Tk):
 
     # ── Save Day ──────────────────────────────────────────────────────────
     def _save_day(self):
+        if self.dm.is_week_locked(self.cur_mon):
+            messagebox.showwarning("Locked",
+                "This week has been finalised. Unlock it first to make changes.")
+            return
         self._snapshot_hours_from_widgets()
         self._snapshot_checked_from_widgets()
         self._snapshot_tips_from_widgets()
@@ -2027,12 +2209,28 @@ class App(tk.Tk):
                       f"{(mon + timedelta(6)).strftime('%b %d, %Y')}",
                  bg=BG_PAGE, fg=FG, font=(FONT, 18, "bold")).pack(side="left")
 
+        # ── Lock status banner ─────────────────────────────────────────────
+        is_locked = self.dm.is_week_locked(mon)
+        if is_locked:
+            lock_banner = tk.Frame(scroll, bg=LOCK_BG, highlightbackground=LOCK_BD,
+                                    highlightthickness=1)
+            lock_banner.pack(fill="x", padx=24, pady=(0, 6))
+            tk.Label(lock_banner, text="\U0001F512  This week is FINALISED — no changes allowed",
+                     bg=LOCK_BG, fg=LOCK_FG, font=(FONT, 12, "bold"),
+                     padx=12, pady=8).pack(side="left")
+            Btn(lock_banner, text="\U0001F513  Unlock Week", style="danger",
+                command=lambda: self._unlock_week(mon)).pack(side="right", padx=12, pady=6)
+
         wnav = tk.Frame(scroll, bg=BG_PAGE)
         wnav.pack(fill="x", padx=24, pady=4)
         Btn(wnav, text="\u2190 Prev Week", style="ghost",
             command=lambda: self._chg_wk(-7)).pack(side="left", padx=4)
         Btn(wnav, text="Next Week \u2192", style="ghost",
             command=lambda: self._chg_wk(7)).pack(side="left", padx=4)
+
+        if not is_locked:
+            Btn(wnav, text="\u2713  Finalise Payroll", style="primary",
+                command=lambda: self._finalise_week(mon)).pack(side="right", padx=4)
 
         grid_frame = tk.Frame(scroll, bg=BG_PAGE)
         grid_frame.pack(fill="x", padx=24, pady=(10, 4))
@@ -2225,6 +2423,10 @@ class App(tk.Tk):
 
     def _edit_wv_row(self, row_data, csv_path, csv_keys, is_hours):
         """Open inline edit dialog for a single row in week view tables."""
+        if self.dm.is_week_locked(self.cur_mon):
+            messagebox.showwarning("Locked",
+                "This week has been finalised. Unlock it first to make changes.")
+            return
         win = tk.Toplevel(self)
         win.title("Edit Row")
         win.configure(bg=BG_CARD)
@@ -2356,6 +2558,30 @@ class App(tk.Tk):
             self.toast.show(f"CSV available: {path.name}")
         else:
             self.toast.show("No data to export.", bg=WARN_BG, fg=WARN_FG)
+
+    def _finalise_week(self, mon):
+        """Lock/finalise a week so no further changes can be made."""
+        end = mon + timedelta(days=6)
+        if not messagebox.askyesno("Finalise Payroll",
+                f"Finalise the week of {mon.strftime('%b %d')} – {end.strftime('%b %d, %Y')}?\n\n"
+                "This will lock all data for this week.\n"
+                "No hours, tips, or edits can be made until unlocked."):
+            return
+        self.dm.lock_week(mon)
+        self._clr()
+        self.pg_week()
+        self.toast.show("Week finalised and locked!")
+
+    def _unlock_week(self, mon):
+        """Unlock a previously finalised week."""
+        if not messagebox.askyesno("Unlock Week",
+                "Are you sure you want to unlock this week?\n"
+                "This will allow changes to be made again."):
+            return
+        self.dm.unlock_week(mon)
+        self._clr()
+        self.pg_week()
+        self.toast.show("Week unlocked — edits allowed.")
 
     def _chg_wk(self, d):
         self.sel_date += timedelta(days=d)
@@ -2627,6 +2853,10 @@ class App(tk.Tk):
 
             def save_profile_hours():
                 """Save edited hours from profile back to the day data."""
+                if self.dm.is_week_locked(mon):
+                    messagebox.showwarning("Locked",
+                        "This week has been finalised. Unlock it first to make changes.")
+                    return
                 # Group changes by day
                 changes_by_day = {}
                 for phe in profile_hours_entries:
